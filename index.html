@@ -2,58 +2,44 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1b241e">
-  <meta name="description" content="REWEAR VINTAGE — винтажная одежда. Выберите вещи и отправьте заказ продавцу через Telegram.">
+  <meta name="description" content="REWEAR VINTAGE — винтажная одежда. Выберите вещи и напишите продавцу в Telegram.">
   <title>REWEAR VINTAGE — винтажная одежда</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500&family=Unbounded:wght@500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="/styles.css">
   <script src="/app.js" type="module"></script>
 </head>
 <body>
   <header class="site-header" id="top">
-    <a class="brand" href="#top" aria-label="REWEAR VINTAGE — наверх">REWEAR VINTAGE</a>
-    <nav aria-label="Основная навигация"><a href="#catalog">Каталог</a><a href="#how">Как заказать</a></nav>
-    <button class="cart-toggle" id="cart-toggle" type="button" aria-label="Открыть корзину">Корзина <span id="cart-count">0</span></button>
+    <a class="brand" href="#top" aria-label="REWEAR VINTAGE — наверх">REWEAR</a>
+    <button class="cart-toggle" id="cart-toggle" type="button" aria-label="Открыть корзину">Корзина<span id="cart-count" hidden>0</span></button>
   </header>
+
   <main>
     <section class="masthead" aria-labelledby="page-title">
-      <h1 id="page-title" class="wordmark">REWEAR</h1>
-      <p class="masthead-line">Винтажная одежда. Выбираете размер, собираете корзину и пишете продавцу в Telegram.</p>
+      <h1 id="page-title">REWEAR VINTAGE</h1>
+      <p class="masthead-line">Винтажная одежда в единственном экземпляре. Выбираете вещь и размер, пишете продавцу в Telegram.</p>
     </section>
-
-    <section class="catalog" id="catalog" aria-labelledby="catalog-title">
-      <div class="catalog-bar">
-        <h2 id="catalog-title">Каталог <span class="count" id="product-count"></span></h2>
-        <div class="filters" id="filters" role="group" aria-label="Категории товаров"></div>
-      </div>
+    <section class="catalog" id="catalog" aria-label="Каталог">
       <div class="product-grid" id="product-grid" aria-live="polite"><p class="loading">Загружаем каталог…</p></div>
-      <p class="catalog-note">Наличие и итоговая цена подтверждаются продавцом после заявки. Витрина демонстрационная: вещи и цены приведены для примера.</p>
-    </section>
-
-    <section class="how" id="how" aria-labelledby="how-title">
-      <h2 id="how-title">Как заказать</h2>
-      <ol class="steps">
-        <li><span class="step-no">1</span><p>Выберите вещь и размер, добавьте в корзину.</p></li>
-        <li><span class="step-no">2</span><p>Оставьте Telegram или телефон. Продавец получит список.</p></li>
-        <li><span class="step-no">3</span><p>Оплату и отправку обсудите с продавцом напрямую.</p></li>
-      </ol>
     </section>
   </main>
-  <footer class="site-footer"><a class="brand" href="#top">REWEAR VINTAGE</a><p>Винтажная одежда · демонстрационная версия</p><a href="#top">Наверх ↑</a></footer>
+
+  <footer class="site-footer">
+    <ol class="steps"><li>Выберите вещь и размер</li><li>Добавьте в корзину</li><li>Напишите продавцу в Telegram: сообщение уже готово</li></ol>
+    <p class="fine">Витрина демонстрационная: вещи и цены приведены для примера. Наличие и итоговую цену подтверждает продавец. Мы ничего о вас не собираем.</p>
+  </footer>
 
   <div class="scrim" id="scrim" hidden></div>
-  <aside class="cart-drawer" id="cart-drawer" role="dialog" aria-modal="true" aria-label="Корзина" aria-hidden="true">
-    <div class="drawer-header"><h2>Корзина</h2><button class="icon-button" id="cart-close" aria-label="Закрыть корзину" type="button">×</button></div>
-    <div class="cart-items" id="cart-items"></div>
-    <div class="checkout" id="checkout">
-      <div class="total-row"><span>Итого</span><strong id="cart-total">0 ₽</strong></div>
-      <p class="form-hint">Нажмёте кнопку — откроется Telegram с готовым сообщением продавцу: список вещей и ссылки. Мы ничего о вас не собираем. Оплата на сайте не проводится.</p>
-      <a class="submit-button" id="telegram-order" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true">Написать в Telegram</a>
-      <p id="form-status" class="form-status" role="status" aria-live="polite"></p>
+  <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="sheet-title" hidden>
+    <div class="sheet-head" id="sheet-head">
+      <span class="grabber" aria-hidden="true"></span>
+      <button class="icon-button" id="sheet-close" type="button" aria-label="Закрыть">×</button>
     </div>
-  </aside>
+    <div class="sheet-body" id="sheet-body"></div>
+  </section>
 </body>
 </html>
