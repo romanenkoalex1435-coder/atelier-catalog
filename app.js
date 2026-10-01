@@ -16,13 +16,13 @@ let sellerTelegram = '';
 
 function readCart() {
   try {
-    const stored = JSON.parse(localStorage.getItem('lineya-cart') || '[]');
+    const stored = JSON.parse(localStorage.getItem('rewear-cart') || '[]');
     return Array.isArray(stored) ? stored.filter(item => typeof item.id === 'string' && typeof item.size === 'string' && Number.isInteger(item.quantity) && item.quantity > 0 && item.quantity <= 10) : [];
   } catch { return []; }
 }
 
 function saveCart() {
-  localStorage.setItem('lineya-cart', JSON.stringify(cart));
+  localStorage.setItem('rewear-cart', JSON.stringify(cart));
   renderCart();
 }
 
@@ -33,10 +33,12 @@ function renderFilters() {
 
 function renderProducts() {
   const visible = products.filter(product => category === 'Все' || product.category === category);
-  document.querySelector('#product-count').textContent = String(products.length).padStart(2, '0');
+  document.querySelector('#product-count').textContent = String(visible.length);
   grid.innerHTML = visible.length ? visible.map(product => {
-    const image = /^\/images\/[a-z0-9.-]+$/.test(product.image || '') ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.title)}" loading="lazy">` : '<span class="image-placeholder">Фото появится здесь</span>';
-    return `<article class="product-card" id="product-${escapeHtml(product.id)}"><div class="product-image">${image}${product.id.startsWith('demo-') ? '<span class="demo-tag">Пример</span>' : ''}</div><div class="product-meta"><h3>${escapeHtml(product.title)}</h3><strong>${currency(product.price)}</strong></div><p class="product-category">${escapeHtml(product.category)} · ${escapeHtml(product.description)}</p><div class="add-row"><select class="size-select" aria-label="Размер ${escapeHtml(product.title)}">${product.sizes.map(size => `<option value="${escapeHtml(size)}">${escapeHtml(size)}</option>`).join('')}</select><button class="add-button" type="button" data-id="${escapeHtml(product.id)}">Добавить в корзину ↗</button></div></article>`;
+    const number = String(products.indexOf(product) + 1).padStart(2, '0');
+    const image = /^\/images\/[a-z0-9.-]+$/.test(product.image || '') ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.title)}" loading="lazy">` : `<span class="image-placeholder"><b>№ ${number}</b><span>фото скоро</span></span>`;
+    const sub = product.id.startsWith('demo-') ? product.category : `${product.category} · ${product.description}`;
+    return `<article class="product" id="product-${escapeHtml(product.id)}"><div class="product-image">${image}</div><div class="product-head"><h3>${escapeHtml(product.title)}</h3><span class="price">${currency(product.price)}</span></div><p class="product-sub">${escapeHtml(sub)}</p><div class="sizes" role="group" aria-label="Размер: ${escapeHtml(product.title)}">${product.sizes.map((size, i) => `<button class="size" type="button" data-size="${escapeHtml(size)}" aria-pressed="${i === 0}">${escapeHtml(size)}</button>`).join('')}</div><button class="add-button" type="button" data-id="${escapeHtml(product.id)}">В корзину</button></article>`;
   }).join('') : '<p class="empty">В этой категории пока нет товаров.</p>';
 }
 
@@ -79,11 +81,16 @@ filters.addEventListener('click', event => {
 });
 
 grid.addEventListener('click', event => {
+  const sizeButton = event.target.closest('[data-size]');
+  if (sizeButton) {
+    sizeButton.parentElement.querySelectorAll('.size').forEach(el => el.setAttribute('aria-pressed', String(el === sizeButton)));
+    return;
+  }
   const button = event.target.closest('[data-id]');
   if (!button) return;
   const product = products.find(p => p.id === button.dataset.id);
   if (!product) return;
-  const size = button.closest('.product-card').querySelector('select').value;
+  const size = button.closest('.product').querySelector('.size[aria-pressed="true"]').dataset.size;
   const existing = cart.find(item => item.id === product.id && item.size === size);
   if (existing) existing.quantity = Math.min(existing.quantity + 1, 10);
   else cart.push({ id: product.id, size, quantity: 1 });
@@ -130,7 +137,7 @@ form.addEventListener('submit', async event => {
       link.href = `https://t.me/${sellerTelegram}`;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
-      link.textContent = ' Открыть Telegram ↗';
+      link.textContent = ' Открыть Telegram';
       status.append(link);
     }
     status.className = 'form-status success';
