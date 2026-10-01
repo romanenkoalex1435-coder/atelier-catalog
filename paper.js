@@ -43,10 +43,20 @@ void main(){
   vec3 L = normalize(vec3(uLight.xy - s, uLight.z));
   float ratio = dot(N, L) / L.z;
   float shade = clamp(.95 + (ratio - 1.) * .27, .68, 1.1);
-  vec3 col = uBase * shade * ao;
+  vec3 col = uBase * 1.05 * shade * ao;
   col *= 1. + .08 * smoothstep(1100., 0., length(uLight.xy - s));
   vec3 H = normalize(L + vec3(0., 0., 1.));
   col += pow(max(dot(N, H), 0.), 46.) * .09;
+  // aging: yellowed stains, darkened edges, sparse foxing
+  float st = vn(p / 560. + 3.) * .55 + vn(p / 210. + 9.) * .3 + vn(p / 70. + 1.) * .15;
+  col = mix(col, col * vec3(.94, .85, .66), smoothstep(.46, .84, st) * .8);
+  vec2 uv = s / (uRes / uDpr);
+  float vg = length((uv - .5) * vec2(1., .92));
+  col *= 1. - .14 * smoothstep(.4, 1., vg);
+  col = mix(col, col * vec3(.9, .78, .58), smoothstep(.55, 1.05, vg) * .38);
+  vec2 cell = floor(p / 3.);
+  float speck = step(.9988, h21(cell)) * (.45 + .55 * h21(cell + 7.));
+  col = mix(col, vec3(.46, .3, .15), speck * .55);
   col *= .985 + .03 * h21(gl_FragCoord.xy);
   gl_FragColor = vec4(col, 1.);
 }`;
@@ -89,7 +99,7 @@ void main(){
       gl.uniform2f(uni.off, 0, reduce.matches ? 0 : scrollY * .18);   // paper sits behind the page: slower than content
       gl.uniform3f(uni.light, light.x, light.y, Math.max(520, Math.max(width, height) * .75));
       gl.uniform3f(uni.base, base[0], base[1], base[2]);
-      gl.uniform1f(uni.amt, .44);
+      gl.uniform1f(uni.amt, .52);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
 

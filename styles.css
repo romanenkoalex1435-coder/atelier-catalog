@@ -1,13 +1,13 @@
 :root {
-  --paper: #d9ceba;
-  --surface: #d9ceba;
-  --tile: rgba(74, 52, 26, .13);
+  --paper: #efe5cd;
+  --surface: #efe5cd;
+  --tile: #e0d3b6;
   --ink: #1b1611;
-  --on-ink: #efe7d6;
+  --on-ink: #f4ecd8;
   --accent: #7a2e2a;
   --steel: #4f4636;
   --line: rgba(var(--shade), .16);
-  --material: rgba(222, 213, 195, .84);
+  --material: rgba(238, 228, 204, .84);
   --shade: 0, 0, 0;
   --scrim: 0, 0, 0;
   --r-s: 10px;
