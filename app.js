@@ -14,13 +14,12 @@ let products = [];
 let cart = readCart();
 let sellerTelegram = '';
 let view = null;
-let selectedSize = null;
 let previousFocus;
 
 function readCart() {
   try {
     const stored = JSON.parse(localStorage.getItem('rewear-cart') || '[]');
-    return Array.isArray(stored) ? stored.filter(item => typeof item.id === 'string' && typeof item.size === 'string' && Number.isInteger(item.quantity) && item.quantity > 0 && item.quantity <= 10) : [];
+    return Array.isArray(stored) ? [...new Set(stored.filter(item => typeof item.id === 'string').map(item => item.id))].map(id => ({ id })) : [];
   } catch { return []; }
 }
 
@@ -30,10 +29,10 @@ function saveCart() {
 }
 
 const byId = id => products.find(product => product.id === id);
-const cartTotal = () => cart.reduce((sum, item) => sum + byId(item.id).price * item.quantity, 0);
+const cartTotal = () => cart.reduce((sum, item) => sum + byId(item.id).price, 0);
 
 function updateCount() {
-  const total = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const total = cart.length;
   const changed = cartCount.textContent !== String(total);
   cartCount.textContent = total;
   cartCount.hidden = total === 0;
@@ -158,19 +157,18 @@ function renderProducts() {
 
 function productView(product) {
   return () => {
-    const single = product.sizes.length === 1;
-    selectedSize = single ? product.sizes[0] : null;
+    const inCart = cart.some(item => item.id === product.id);
     const description = product.id.startsWith('demo-') ? '' : `<p class="sheet-desc">${escapeHtml(product.description)}</p>`;
-    sheetBody.innerHTML = `<div class="sheet-image">${imageMarkup(product)}</div><h2 id="sheet-title">${escapeHtml(product.title)}</h2><p class="sheet-price">${currency(product.price)}</p>${description}<p class="sheet-label">Размер</p><div class="sizes" role="group" aria-label="Размер">${product.sizes.map(size => `<button class="size" type="button" data-size="${escapeHtml(size)}" aria-pressed="${single}">${escapeHtml(size)}</button>`).join('')}</div><button class="primary" id="add" type="button" aria-disabled="${!single}">${single ? 'Добавить в корзину' : 'Выберите размер'}</button>`;
     sheetBody.dataset.product = product.id;
+    sheetBody.innerHTML = `<div class="sheet-image">${imageMarkup(product)}</div><h2 id="sheet-title">${escapeHtml(product.title)}</h2><p class="sheet-price">${currency(product.price)}</p>${description}${inCart ? '<button class="primary" id="open-cart" type="button">Уже в корзине · открыть</button>' : '<button class="primary" id="add" type="button">Добавить в корзину</button>'}`;
   };
 }
 
 function cartView() {
-  cart = cart.filter(item => byId(item.id) && byId(item.id).sizes.includes(item.size));
-  const lines = cart.map((item, index) => {
+  cart = cart.filter(item => byId(item.id));
+  const lines = cart.map(item => {
     const product = byId(item.id);
-    return `<div class="cart-line"><div><h3>${escapeHtml(product.title)}</h3><p>Размер ${escapeHtml(item.size)}</p></div><strong>${currency(product.price * item.quantity)}</strong><div class="stepper"><button type="button" data-step="-1" data-index="${index}" aria-label="Убрать одну">−</button><output aria-live="polite">${item.quantity}</output><button type="button" data-step="1" data-index="${index}" aria-label="Добавить ещё одну">+</button></div></div>`;
+    return `<div class="cart-line"><div><h3>${escapeHtml(product.title)}</h3><button class="remove" type="button" data-remove="${escapeHtml(item.id)}">Убрать</button></div><strong>${currency(product.price)}</strong></div>`;
   }).join('');
   const link = cart.length && sellerTelegram ? `https://t.me/${sellerTelegram}?text=${encodeURIComponent(buildMessage())}` : '#';
   const disabled = !cart.length || !sellerTelegram;
@@ -181,7 +179,8 @@ function cartView() {
 function buildMessage() {
   const lines = cart.map((item, index) => {
     const product = byId(item.id);
-    return `${index + 1}. ${product.title}, размер ${item.size}${item.quantity > 1 ? ` × ${item.quantity}` : ''} — ${currency(product.price * item.quantity)}\n${location.origin}/?product=${product.id}`;
+    return `${index + 1}. ${product.title} — ${currency(product.price)}
+${location.origin}/?product=${product.id}`;
   });
   return `Привет! Зашёл на сайт, очень круто, хочу эти вещи:\n\n${lines.join('\n\n')}\n\nИтого: ${currency(cartTotal())}\nКак можно оформить?`;
 }
@@ -193,32 +192,17 @@ grid.addEventListener('click', event => {
 });
 
 sheetBody.addEventListener('click', event => {
-  const sizeButton = event.target.closest('[data-size]');
-  if (sizeButton) {
-    selectedSize = sizeButton.dataset.size;
-    sheetBody.querySelectorAll('.size').forEach(el => el.setAttribute('aria-pressed', String(el === sizeButton)));
-    const add = sheetBody.querySelector('#add');
-    add.setAttribute('aria-disabled', 'false');
-    add.textContent = 'Добавить в корзину';
-    return;
-  }
   if (event.target.closest('#add')) {
-    const add = event.target.closest('#add');
-    if (add.getAttribute('aria-disabled') === 'true') return;
     const id = sheetBody.dataset.product;
-    const existing = cart.find(item => item.id === id && item.size === selectedSize);
-    if (existing) existing.quantity = Math.min(existing.quantity + 1, 10);
-    else cart.push({ id, size: selectedSize, quantity: 1 });
+    if (!cart.some(item => item.id === id)) cart.push({ id });
     saveCart();
     closeSheet();
     return;
   }
-  const step = event.target.closest('[data-step]');
-  if (step) {
-    const item = cart[Number(step.dataset.index)];
-    item.quantity += Number(step.dataset.step);
-    if (item.quantity <= 0) cart.splice(Number(step.dataset.index), 1);
-    item.quantity = Math.min(item?.quantity ?? 0, 10);
+  if (event.target.closest('#open-cart')) { openSheet(cartView); return; }
+  const remove = event.target.closest('[data-remove]');
+  if (remove) {
+    cart = cart.filter(item => item.id !== remove.dataset.remove);
     saveCart();
     cartView();
     return;
