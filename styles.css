@@ -1,11 +1,11 @@
 :root {
   --paper: #d9ceba;
   --surface: #d9ceba;
-  --tile: #cbbea6;
+  --tile: rgba(74, 52, 26, .13);
   --ink: #1b1611;
   --on-ink: #efe7d6;
   --accent: #7a2e2a;
-  --steel: #675c4b;
+  --steel: #4f4636;
   --line: rgba(var(--shade), .16);
   --material: rgba(222, 213, 195, .84);
   --shade: 0, 0, 0;
@@ -21,6 +21,9 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
+.paper { position: fixed; inset: 0; z-index: 0; width: 100%; height: 100%; display: block; pointer-events: none; opacity: 0; transition: opacity 1.6s ease; }
+.paper.ready { opacity: 1; }
+main, .site-footer { position: relative; z-index: 1; }
 a { color: inherit; text-underline-offset: 3px; }
 button { font: inherit; color: inherit; cursor: pointer; }
 h1, h2, h3, p, ol { margin: 0; }
