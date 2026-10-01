@@ -23,9 +23,9 @@ function readCart() {
   } catch { return []; }
 }
 
-function saveCart() {
+function saveCart(deferCount = false) {
   try { localStorage.setItem('rewear-cart', JSON.stringify(cart)); } catch {}
-  updateCount();
+  if (!deferCount) updateCount();
 }
 
 const byId = id => products.find(product => product.id === id);
@@ -83,6 +83,8 @@ function settle(target, velocity = 0, damping = 1, done) {
 function openSheet(render) {
   view = render;
   render();
+  sheetBody.classList.remove('enter'); void sheetBody.offsetWidth; sheetBody.classList.add('enter');
+  clearTimeout(openSheet.t); openSheet.t = setTimeout(() => sheetBody.classList.remove('enter'), 1000);
   if (!sheetOpen) {
     previousFocus = document.activeElement;
     sheet.hidden = false; scrim.hidden = false;
@@ -195,7 +197,8 @@ sheetBody.addEventListener('click', event => {
   if (event.target.closest('#add')) {
     const id = sheetBody.dataset.product;
     if (!cart.some(item => item.id === id)) cart.push({ id });
-    saveCart();
+    const flew = flyToCart();
+    saveCart(flew);
     closeSheet();
     return;
   }
@@ -213,6 +216,72 @@ sheetBody.addEventListener('click', event => {
 
 document.querySelector('#cart-toggle').addEventListener('click', () => openSheet(cartView));
 
+/* ---------- motion ---------- */
+function splitHeading() {
+  const h1 = document.querySelector('#page-title');
+  const text = h1.textContent.trim();
+  h1.setAttribute('aria-label', text);
+  let c = 0;
+  h1.innerHTML = text.split(' ').map(word => `<span class="word" aria-hidden="true">${[...word].map(ch => `<span class="ch" style="--c:${c++}">${ch}</span>`).join('')}</span>`).join(' ');
+}
+
+function observeTiles() {
+  const cols = () => isDesktop.matches ? (matchMedia('(min-width: 1100px)').matches ? 4 : 3) : 2;
+  const io = new IntersectionObserver(entries => entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    const tile = entry.target;
+    io.unobserve(tile);
+    tile.style.setProperty('--col', [...grid.children].indexOf(tile) % cols());
+    tile.classList.add('in');
+    setTimeout(() => tile.classList.add('done'), 1300);
+  }), { rootMargin: '0px 0px -8% 0px', threshold: .08 });
+  grid.querySelectorAll('.tile').forEach(tile => io.observe(tile));
+}
+
+if (matchMedia('(hover: hover)').matches) {
+  grid.addEventListener('pointermove', event => {
+    if (reduceMotion.matches) return;
+    const image = event.target.closest('.tile')?.querySelector('.tile-image');
+    if (!image) return;
+    const box = image.getBoundingClientRect();
+    const x = (event.clientX - box.left) / box.width, y = (event.clientY - box.top) / box.height;
+    image.style.setProperty('--ry', `${(x - .5) * 9}deg`);
+    image.style.setProperty('--rx', `${(.5 - y) * 9}deg`);
+    image.style.setProperty('--gx', `${x * 100}%`);
+    image.style.setProperty('--gy', `${y * 100}%`);
+    image.style.setProperty('--glare', '1');
+  });
+  grid.addEventListener('pointerout', event => {
+    const image = event.target.closest('.tile-image');
+    if (!image || image.contains(event.relatedTarget)) return;
+    ['--rx', '--ry'].forEach(name => image.style.setProperty(name, '0deg'));
+    image.style.setProperty('--glare', '0');
+  });
+}
+
+const header = document.querySelector('.site-header');
+new IntersectionObserver(([entry]) => header.classList.toggle('show-brand', !entry.isIntersecting), { rootMargin: '-52px 0px 0px 0px' }).observe(document.querySelector('#page-title'));
+
+/* the item flies from the sheet into the cart */
+function flyToCart() {
+  const source = sheet.querySelector('.sheet-image');
+  if (!source || reduceMotion.matches) return false;
+  const from = source.getBoundingClientRect(), to = document.querySelector('#cart-toggle').getBoundingClientRect();
+  const ghost = document.createElement('div');
+  ghost.className = 'fly';
+  ghost.style.cssText = `left:${from.left}px;top:${from.top}px;width:${from.width}px;height:${from.height}px`;
+  ghost.innerHTML = source.innerHTML;
+  document.body.append(ghost);
+  const scale = Math.min(34 / from.width, 34 / from.height);
+  const dx = to.left + to.width / 2 - 17 - from.left, dy = to.top + to.height / 2 - 17 - from.top;
+  ghost.animate([
+    { transform: 'translate(0,0) scale(1)', opacity: 1 },
+    { transform: `translate(${dx * .55}px, ${dy * .2 - 40}px) scale(${scale * 3})`, opacity: 1, offset: .55 },
+    { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 0 }
+  ], { duration: 780, easing: 'cubic-bezier(.45, .05, .2, 1)', fill: 'forwards' }).onfinish = () => { ghost.remove(); updateCount(); };
+  return true;
+}
+
 async function init() {
   try {
     const config = await fetch('/config.json').then(response => response.json());
@@ -220,7 +289,7 @@ async function init() {
     const response = await fetch('/data/products.json', { cache: 'no-store' });
     if (!response.ok) throw new Error('Каталог недоступен.');
     products = (await response.json()).filter(product => product.active);
-    renderProducts(); updateCount();
+    splitHeading(); renderProducts(); observeTiles(); updateCount();
     const selected = byId(new URLSearchParams(location.search).get('product'));
     if (selected) openSheet(productView(selected));
   } catch (error) {
