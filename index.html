@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#edeae3">
+  <meta name="description" content="Каталог одежды. Выберите вещи и отправьте заказ продавцу через Telegram.">
+  <title>Линия — каталог одежды</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" type="module"></script>
+</head>
+<body>
+  <div class="announcement">Демонстрационная витрина · товары и цены приведены для примера</div>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Линия — на главную">ЛИНИЯ<span> / </span>01</a>
+    <nav aria-label="Основная навигация"><a href="#catalog">Каталог</a><a href="#how">Как заказать</a></nav>
+    <button class="cart-toggle" id="cart-toggle" type="button" aria-label="Открыть корзину">Корзина <span id="cart-count">0</span></button>
+  </header>
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow">Найденное с характером · коллекция 01</p>
+        <h1 id="hero-title">Вещи, которые<br><em>хочется носить.</em></h1>
+        <p class="hero-description">Выбирайте размер, собирайте корзину и отправляйте заказ. Детали оплаты и доставки обсудим лично в Telegram.</p>
+        <a class="primary-link" href="#catalog">Смотреть каталог <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="hero-visual" aria-hidden="true"><span class="hero-shape hero-shape-one"></span><span class="hero-shape hero-shape-two"></span><span class="hero-mark">Л</span><span class="hero-caption">CURATED / EVERYDAY WEAR</span></div>
+      <div class="hero-index">01 / 03 <span>СОБРАНО С ВНИМАНИЕМ</span></div>
+    </section>
+
+    <section class="catalog-section" id="catalog" aria-labelledby="catalog-title">
+      <div class="section-heading"><div><p class="eyebrow">Каталог / актуальное</p><h2 id="catalog-title">В наличии<span class="section-count" id="product-count"></span></h2></div><p>Вещи для повседневной жизни.<br>Выберите свою.</p></div>
+      <div class="filters" id="filters" role="group" aria-label="Категории товаров"></div>
+      <div class="product-grid" id="product-grid" aria-live="polite"><p class="loading">Загружаем каталог…</p></div>
+      <p class="catalog-note">Наличие и окончательная стоимость подтверждаются продавцом после заявки.</p>
+    </section>
+
+    <section class="how-section" id="how" aria-labelledby="how-title">
+      <div><p class="eyebrow">Всё просто</p><h2 id="how-title">Как это<br><em>работает</em></h2></div>
+      <ol class="steps"><li><span>01</span><div><h3>Выберите вещи</h3><p>Посмотрите каталог, укажите размеры и добавьте понравившееся в корзину.</p></div></li><li><span>02</span><div><h3>Отправьте заявку</h3><p>Оставьте Telegram или телефон. Продавец получит список товаров и свяжется с вами.</p></div></li><li><span>03</span><div><h3>Договоритесь о деталях</h3><p>Оплата, наличие и отправка обсуждаются напрямую с продавцом.</p></div></li></ol>
+    </section>
+  </main>
+  <footer><a class="brand" href="#top">ЛИНИЯ<span> / </span>01</a><p>Каталог одежды · демонстрационная версия</p><a href="#top">Наверх ↑</a></footer>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="cart-drawer" id="cart-drawer" role="dialog" aria-modal="true" aria-label="Корзина" aria-hidden="true">
+    <div class="drawer-header"><div><p class="eyebrow">Ваш выбор</p><h2>Корзина</h2></div><button class="icon-button" id="cart-close" aria-label="Закрыть корзину" type="button">×</button></div>
+    <div class="cart-items" id="cart-items"></div>
+    <form class="checkout" id="checkout-form"><div class="total-row"><span>Итого</span><strong id="cart-total">0 ₽</strong></div><label for="customer">Ваш Telegram @username или телефон</label><input id="customer" name="customer" autocomplete="off" placeholder="@username или +7 999 123-45-67" required><input class="honeypot" name="website" tabindex="-1" autocomplete="off" aria-hidden="true"><p class="form-hint">Контакт нужен продавцу, чтобы ответить по заказу. Оплата на сайте не проводится.</p><button class="submit-button" type="submit">Отправить заказ <span>↗</span></button><p id="form-status" class="form-status" role="status" aria-live="polite"></p></form>
+  </aside>
+</body>
+</html>

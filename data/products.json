@@ -1,0 +1,8 @@
+[
+  {"id":"demo-01","title":"Куртка свободного кроя","price":6900,"category":"Верхняя одежда","sizes":["S","M","L"],"description":"Демонстрационный товар. Замените описание и фото через Telegram-бота.","image":"","active":true},
+  {"id":"demo-02","title":"Рубашка в полоску","price":3200,"category":"Рубашки","sizes":["S","M"],"description":"Демонстрационный товар. Замените описание и фото через Telegram-бота.","image":"","active":true},
+  {"id":"demo-03","title":"Джинсы прямого кроя","price":4400,"category":"Брюки и джинсы","sizes":["26","27","28","29"],"description":"Демонстрационный товар. Замените описание и фото через Telegram-бота.","image":"","active":true},
+  {"id":"demo-04","title":"Хлопковая футболка","price":1900,"category":"Футболки","sizes":["S","M","L","XL"],"description":"Демонстрационный товар. Замените описание и фото через Telegram-бота.","image":"","active":true},
+  {"id":"demo-05","title":"Трикотажный джемпер","price":3800,"category":"Трикотаж","sizes":["M","L"],"description":"Демонстрационный товар. Замените описание и фото через Telegram-бота.","image":"","active":true},
+  {"id":"demo-06","title":"Широкие брюки","price":4100,"category":"Брюки и джинсы","sizes":["S","M","L"],"description":"Демонстрационный товар. Замените описание и фото через Telegram-бота.","image":"","active":true}
+]
