@@ -3,7 +3,7 @@ const filters = document.querySelector('#filters');
 const drawer = document.querySelector('#cart-drawer');
 const scrim = document.querySelector('#scrim');
 const cartItems = document.querySelector('#cart-items');
-const form = document.querySelector('#checkout-form');
+const orderLink = document.querySelector('#telegram-order');
 const status = document.querySelector('#form-status');
 const currency = value => new Intl.NumberFormat('ru-RU').format(value) + ' ₽';
 const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -52,7 +52,18 @@ function renderCart() {
     const product = products.find(p => p.id === item.id);
     return `<div class="cart-item"><div><h3>${escapeHtml(product.title)}</h3><p>Размер ${escapeHtml(item.size)} · ${item.quantity} шт.</p><button class="remove" type="button" data-remove="${index}">Удалить</button></div><strong>${currency(product.price * item.quantity)}</strong></div>`;
   }).join('') : '<p class="empty">Пока пусто. Выберите вещи в каталоге.</p>';
-  form.querySelector('.submit-button').disabled = cart.length === 0;
+  orderLink.setAttribute('aria-disabled', String(cart.length === 0 || !sellerTelegram));
+  orderLink.href = cart.length && sellerTelegram ? `https://t.me/${sellerTelegram}?text=${encodeURIComponent(buildMessage())}` : '#';
+  status.textContent = sellerTelegram ? '' : 'Telegram продавца пока не настроен.';
+}
+
+function buildMessage() {
+  const lines = cart.map((item, index) => {
+    const product = products.find(p => p.id === item.id);
+    return `${index + 1}. ${product.title}, размер ${item.size}${item.quantity > 1 ? ` × ${item.quantity}` : ''} — ${currency(product.price * item.quantity)}\n${location.origin}/?product=${product.id}`;
+  });
+  const total = cart.reduce((sum, item) => sum + products.find(p => p.id === item.id).price * item.quantity, 0);
+  return `Привет! Зашёл на сайт, очень круто, хочу эти вещи:\n\n${lines.join('\n\n')}\n\nИтого: ${currency(total)}\nКак можно оформить?`;
 }
 
 function openCart() {
@@ -111,42 +122,15 @@ scrim.addEventListener('click', closeCart);
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && drawer.classList.contains('open')) closeCart();
   if (event.key === 'Tab' && drawer.classList.contains('open')) {
-    const focusable = [...drawer.querySelectorAll('button:not(:disabled), input:not(.honeypot)')];
+    const focusable = [...drawer.querySelectorAll('button:not(:disabled), a[href]:not([aria-disabled="true"])')];
     const first = focusable[0], last = focusable.at(-1);
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }
 });
 
-form.addEventListener('submit', async event => {
-  event.preventDefault();
-  if (!cart.length) return;
-  const button = form.querySelector('.submit-button');
-  button.disabled = true;
-  status.textContent = 'Отправляем заказ…';
-  status.className = 'form-status';
-  try {
-    const response = await fetch('/api/order', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ customer: form.customer.value.trim(), website: form.website.value, items: cart }) });
-    const result = await response.json().catch(() => ({ error: 'Сервис заказов сейчас недоступен. Попробуйте позже.' }));
-    if (!response.ok || !result.ok) throw new Error(result.error || 'Ошибка отправки.');
-    cart = [];
-    saveCart();
-    status.textContent = 'Заявка отправлена. Продавец свяжется с вами по указанному контакту.';
-    if (sellerTelegram) {
-      const link = document.createElement('a');
-      link.href = `https://t.me/${sellerTelegram}`;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.textContent = ' Открыть Telegram';
-      status.append(link);
-    }
-    status.className = 'form-status success';
-    form.reset();
-  } catch (error) {
-    status.textContent = error.message;
-    status.className = 'form-status error';
-    button.disabled = false;
-  }
+orderLink.addEventListener('click', event => {
+  if (orderLink.getAttribute('aria-disabled') === 'true') event.preventDefault();
 });
 
 async function init() {
