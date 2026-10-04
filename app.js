@@ -288,7 +288,7 @@ function flyToCart() {
 const heroBox = document.querySelector('.masthead-hero');
 const heroProbe = new Image();
 heroProbe.onload = () => heroBox.classList.add('has-hero');
-heroProbe.src = '/images/hero.jpg';
+heroProbe.src = '/images/hero.webp';
 
 async function init() {
   try {

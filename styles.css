@@ -44,8 +44,8 @@ h1, h2, h3, p, ol { margin: 0; }
 
 /* masthead: big wordmark, serif RE against grotesk WEAR */
 .masthead-hero { position: relative; display: flex; align-items: flex-end; min-height: clamp(150px, 34vw, 460px); padding: 28px var(--gutter) 8px; }
-/* optional rug backdrop: appears when /images/hero.jpg exists */
-.masthead-hero.has-hero { padding-bottom: 20px; color: var(--paper); background: #6b2a1c url(/images/hero.jpg) center / cover; }
+/* optional rug backdrop: appears when /images/hero.webp exists */
+.masthead-hero.has-hero { padding-bottom: 20px; color: var(--paper); background: #6b2a1c url(/images/hero.webp) center / cover; }
 .masthead-hero.has-hero::before { content: ''; position: absolute; inset: 0; background: rgba(26, 24, 20, .3); }
 .masthead-hero h1 { position: relative; }
 .masthead-row { margin-left: var(--gutter); margin-right: var(--gutter); }
