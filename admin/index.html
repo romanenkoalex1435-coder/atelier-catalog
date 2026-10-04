@@ -46,10 +46,16 @@
         </div>
         <label>Состояние<input name="condition" maxlength="60" placeholder="Отличное"></label>
         <label>Замеры, см<input name="measures" maxlength="200" placeholder="Плечи 52 · Рукав 62 · Длина 70"></label>
-        <label>Фото<input name="photo" type="file" accept="image/*"></label>
-        <div class="stage" id="stage" hidden><img class="preview" id="preview" alt="Предпросмотр фото"><span id="stage-pins"></span></div>
-        <p class="fine" id="pin-hint" hidden>Нажмите на фото, чтобы поставить точку: деталь, особенность или дефект. Подпишите каждую (до 8). На сайте точки откроются по нажатию.</p>
-        <ol class="pin-list" id="pin-list"></ol>
+        <fieldset class="photos">
+          <legend>Фото (до 8): первое показывается на обложке</legend>
+          <ol class="photo-strip" id="photo-strip"></ol>
+          <label class="btn ghost file">Добавить фото<input type="file" id="photo-input" accept="image/*" multiple hidden></label>
+        </fieldset>
+        <div id="pin-section" hidden>
+          <p class="fine">Нажмите на фото, чтобы поставить точку: <b>деталь</b> (вышивка, бирка, заплатка) или <b>дефект</b> (пятно, потёртость). Подпишите каждую. На сайте точки раскрываются по нажатию.</p>
+          <div class="stage" id="stage"><img class="preview" id="preview" alt="Выбранное фото"><span id="stage-pins"></span></div>
+          <ol class="pin-list" id="pin-list"></ol>
+        </div>
         <div class="row">
           <button class="btn" type="submit" id="save">Сохранить</button>
           <button class="btn ghost" type="button" id="cancel">Отмена</button>

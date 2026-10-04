@@ -23,11 +23,6 @@
 .row { display: flex; gap: 10px; flex-wrap: wrap; }
 .stage { position: relative; width: fit-content; max-width: 100%; }
 .preview { display: block; width: auto; height: auto; max-width: 100%; max-height: 380px; cursor: crosshair; }
-.apin { position: absolute; width: 24px; height: 24px; transform: translate(-50%, -50%); display: grid; place-items: center; border: 1px solid #f1e9d8; border-radius: 50%; background: rgba(26, 24, 20, .8); color: #f1e9d8; font-size: 11px; font-weight: 600; pointer-events: none; }
-.pin-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.pin-list li { display: grid; grid-template-columns: 24px 1fr auto; gap: 8px; align-items: center; }
-.pin-list .num { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--steel); border-radius: 50%; font-size: 11px; color: var(--steel); }
-.pin-list .btn { height: 36px; padding: 0 12px; }
 .notice { padding: 12px 16px; border-radius: var(--r-m); background: var(--tile); }
 .notice.error { color: var(--accent); border: 1px solid var(--accent); background: transparent; }
 .list { list-style: none; margin: 0 0 20px; padding: 0; display: grid; gap: 10px; }
@@ -41,3 +36,21 @@
 @media (min-width: 640px) { .item { grid-template-columns: 64px 1fr auto; } .item .row { grid-column: auto; } }
 
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.apin { position: absolute; width: 24px; height: 24px; transform: translate(-50%, -50%); display: grid; place-items: center; border: 1px solid #f1e9d8; border-radius: 50%; background: rgba(42, 27, 21, .85); color: #f1e9d8; font-size: 11px; font-weight: 600; pointer-events: none; }
+.apin.flaw { background: var(--accent); }
+.photos { margin: 0; padding: 0; border: 0; display: grid; gap: 10px; }
+.photos legend { padding: 0; margin-bottom: 8px; font-size: 14px; color: var(--steel); }
+.photo-strip { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
+.photo-strip li { display: grid; gap: 4px; padding: 4px; border: 1px solid transparent; }
+.photo-strip li.on { border-color: var(--ink); }
+.photo-pick { width: 84px; aspect-ratio: 1; padding: 0; background: var(--tile); border: 0; }
+.photo-pick img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-tools { display: flex; gap: 2px; }
+.photo-tools .btn { height: 28px; padding: 0 8px; flex: 1; font-size: 13px; }
+.file { display: inline-flex; align-items: center; width: fit-content; cursor: pointer; }
+.pin-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.pin-list li { display: grid; grid-template-columns: 24px 1fr auto auto; gap: 8px; align-items: center; }
+.pin-list small { grid-column: 2; color: var(--steel); font-size: 12px; margin-top: -4px; }
+.pin-list .num { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--steel); border-radius: 50%; font-size: 11px; color: var(--steel); }
+.pin-list .num.flaw { background: var(--accent); border-color: var(--accent); color: var(--on-ink); }
+.pin-list .btn { height: 36px; padding: 0 12px; }

@@ -1,6 +1,19 @@
 import { isAdmin, sameOrigin } from '../../lib/auth.js';
-import { PASSPORT_FIELDS, assertId, decodeImage, validateNotes, validateProduct } from '../../lib/catalog.js';
+import { MAX_PHOTOS, PASSPORT_FIELDS, assertId, decodeImage, validateNotes, validateProduct } from '../../lib/catalog.js';
 import { deletePhoto, getCatalog, saveCatalog, savePhoto } from '../../lib/github.js';
+
+const photosOf = product => (Array.isArray(product.images) && product.images.length ? product.images : product.image ? [product.image] : []);
+
+// `list` mixes paths that already belong to the product with new JPEG data URLs.
+async function resolvePhotos(list, id, current) {
+  if (!Array.isArray(list) || list.length > MAX_PHOTOS) throw new Error(`Фото: не больше ${MAX_PHOTOS}.`);
+  const result = [];
+  for (const item of list) {
+    if (typeof item === 'string' && current.includes(item)) result.push(item);
+    else result.push(await savePhoto(`${id}-${Date.now().toString(36)}${result.length}`, decodeImage(item)));
+  }
+  return result;
+}
 
 export default async function handler(req, res) {
   res.setHeader('cache-control', 'no-store');
@@ -9,41 +22,46 @@ export default async function handler(req, res) {
   try {
     const { sha, products } = await getCatalog();
     if (req.method === 'GET') return res.status(200).json({ products });
+    const body = req.body || {};
+    const incoming = 'images' in body ? body.images : 'image' in body ? (body.image ? [body.image] : []) : undefined;
 
     if (req.method === 'POST') {
-      const fields = validateProduct(req.body);
+      const fields = validateProduct(body);
       const id = `p-${Date.now().toString(36)}`;
-      const image = req.body?.image ? await savePhoto(id, decodeImage(req.body.image)) : '';
-      products.unshift({ id, ...fields, image, notes: 'notes' in (req.body || {}) ? validateNotes(req.body.notes) : [], active: true, sold: false });
+      const images = incoming ? await resolvePhotos(incoming, id, []) : [];
+      const notes = 'notes' in body ? validateNotes(body.notes, images.length) : [];
+      products.unshift({ id, ...fields, image: images[0] || '', images, notes, active: true, sold: false, reserved: false });
       await saveCatalog(products, sha, `Add product ${id}`);
       return res.status(200).json({ products });
     }
 
-    const id = assertId(req.query?.id ?? req.body?.id);
+    const id = assertId(req.query?.id ?? body.id);
     const index = products.findIndex(product => product.id === id);
     if (index < 0) return res.status(404).json({ error: 'Товар не найден.' });
     const product = products[index];
 
     if (req.method === 'PUT') {
-      const body = req.body || {};
       if (['title', 'price', 'description', ...PASSPORT_FIELDS].some(key => key in body)) Object.assign(product, validateProduct({ ...product, ...body }));
-      if ('notes' in body) product.notes = validateNotes(body.notes);
-      if (typeof body.active === 'boolean') product.active = body.active;
-      if (typeof body.sold === 'boolean') product.sold = body.sold;
-      let oldImage = '';
-      if (body.image) {
-        oldImage = product.image;
-        product.image = await savePhoto(`${id}-${Date.now().toString(36)}`, decodeImage(body.image));
+      for (const flag of ['active', 'sold', 'reserved']) if (typeof body[flag] === 'boolean') product[flag] = body[flag];
+      let removed = [];
+      if (incoming !== undefined) {
+        const before = photosOf(product);
+        product.images = await resolvePhotos(incoming, id, before);
+        product.image = product.images[0] || '';
+        removed = before.filter(path => !product.images.includes(path));
       }
+      const count = photosOf(product).length;
+      if ('notes' in body) product.notes = validateNotes(body.notes, count);
+      else if (Array.isArray(product.notes)) product.notes = product.notes.filter(note => (note.img ?? 0) < count);
       await saveCatalog(products, sha, `Update product ${id}`);
-      if (oldImage) await deletePhoto(oldImage);
+      for (const path of removed) await deletePhoto(path);
       return res.status(200).json({ products });
     }
 
     if (req.method === 'DELETE') {
       products.splice(index, 1);
       await saveCatalog(products, sha, `Delete product ${id}`);
-      if (product.image) await deletePhoto(product.image);
+      for (const path of photosOf(product)) await deletePhoto(path);
       return res.status(200).json({ products });
     }
     return res.status(405).end();
