@@ -179,7 +179,7 @@ function plural(n, one, few, many) {
 function productView(product) {
   return () => {
     const inCart = cart.some(item => item.id === product.id);
-    const description = product.id.startsWith('demo-') || !product.description ? '' : `<p class="sheet-desc">${escapeHtml(product.description)}</p>`;
+    const description = !product.description ? '' : `<p class="sheet-desc">${escapeHtml(product.description)}</p>`;
     const rows = [['Эпоха', product.era], ['Происхождение', product.origin], ['Состояние', product.condition], ['Замеры, см', product.measures]].filter(([, value]) => value);
     const passport = rows.length ? `<dl class="passport">${rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>` : '';
     let action;
@@ -284,6 +284,11 @@ function flyToCart() {
   ], { duration: 780, easing: 'cubic-bezier(.45, .05, .2, 1)', fill: 'forwards' }).onfinish = () => { ghost.remove(); updateCount(); };
   return true;
 }
+
+const heroBox = document.querySelector('.masthead-hero');
+const heroProbe = new Image();
+heroProbe.onload = () => heroBox.classList.add('has-hero');
+heroProbe.src = '/images/hero.jpg';
 
 async function init() {
   try {
