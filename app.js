@@ -158,7 +158,8 @@ function imageMarkup(product) {
 function tileMarkup(product, index) {
   const sub = [product.era, product.condition].filter(Boolean).join(' · ');
   const demo = product.id.startsWith('demo-') ? '<span class="pill">Пример</span>' : '';
-  return `<button class="tile${product.sold ? ' sold' : ''}" type="button" data-id="${escapeHtml(product.id)}"><div class="tile-image">${imageMarkup(product)}${demo}</div><div class="tile-meta"><h3>${escapeHtml(product.title)}</h3><span class="price">${product.sold ? 'Ушло' : currency(product.price)}</span>${sub ? `<span class="sub">${escapeHtml(sub)}</span>` : ''}</div></button>`;
+  const sticker = product.sold ? '<span class="sticker gone">Ушло</span>' : `<span class="sticker">${currency(product.price)}</span>`;
+  return `<button class="tile${product.sold ? ' sold' : ''}" type="button" data-id="${escapeHtml(product.id)}"><div class="tile-image">${imageMarkup(product)}${demo}${sticker}</div><div class="tile-meta"><h3>${escapeHtml(product.title)}</h3>${sub ? `<span class="sub">${escapeHtml(sub)}</span>` : ''}</div></button>`;
 }
 
 function renderProducts() {
@@ -166,7 +167,7 @@ function renderProducts() {
   grid.innerHTML = live.length ? live.map(tileMarkup).join('') : '<p class="empty">Пока ничего нет. Загляните позже.</p>';
   archiveGrid.innerHTML = sold.map(tileMarkup).join('');
   document.querySelector('#archive').hidden = document.querySelector('#archive-link').hidden = !sold.length;
-  document.querySelector('#catalog-count').textContent = live.length ? `${live.length} ${plural(live.length, 'вещь', 'вещи', 'вещей')} · 1 of 1` : '';
+  document.querySelector('#catalog-count').textContent = live.length ? `${live.length} ${plural(live.length, 'вещь', 'вещи', 'вещей')}` : '';
   document.querySelector('#archive-count').textContent = sold.length ? `ушло: ${sold.length}` : '';
 }
 
@@ -204,7 +205,7 @@ function cartView() {
   const link = cart.length && sellerTelegram ? `https://t.me/${sellerTelegram}?text=${encodeURIComponent(buildMessage())}` : '#';
   const disabled = !cart.length || !sellerTelegram;
   sheetBody.dataset.product = '';
-  sheetBody.innerHTML = `<h2 id="sheet-title">Корзина</h2>${cart.length ? `<p class="cart-count">${cart.length} ${plural(cart.length, 'вещь', 'вещи', 'вещей')} · каждая в единственном экземпляре</p>` : ''}${cart.length ? lines : '<p class="empty-cart">Пока пусто. Выберите вещь в каталоге.</p>'}<div class="total-row"><span>Итого</span><strong>${currency(cartTotal())}</strong></div><a class="primary" id="telegram-order" href="${link}" target="_blank" rel="noopener noreferrer" aria-disabled="${disabled}">Написать в Telegram</a><p class="hint">${sellerTelegram ? 'Откроется Telegram с готовым сообщением: список вещей и ссылки. Мы ничего о вас не собираем. Оплата на сайте не проводится.' : 'Telegram продавца пока не настроен.'}</p>`;
+  sheetBody.innerHTML = `<h2 id="sheet-title" class="display" aria-label="Корзина">Cart</h2>${cart.length ? `<p class="cart-count">${cart.length} ${plural(cart.length, 'вещь', 'вещи', 'вещей')} · каждая в единственном экземпляре</p>` : ''}${cart.length ? lines : '<p class="empty-cart">Пока пусто. Выберите вещь в каталоге.</p>'}<div class="total-row"><span>Итого</span><strong>${currency(cartTotal())}</strong></div><a class="primary" id="telegram-order" href="${link}" target="_blank" rel="noopener noreferrer" aria-disabled="${disabled}">Написать в Telegram</a><p class="hint">${sellerTelegram ? 'Откроется Telegram с готовым сообщением: список вещей и ссылки. Мы ничего о вас не собираем. Оплата на сайте не проводится.' : 'Telegram продавца пока не настроен.'}</p>`;
 }
 
 function buildMessage() {
