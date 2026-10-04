@@ -14,6 +14,14 @@
   <script src="/app.js" type="module"></script>
 </head>
 <body>
+  <!-- worn print: speckle holes in the logotype, like an old screen print -->
+  <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
+    <filter id="aged" x="-4%" y="-4%" width="112%" height="116%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" result="noise"/>
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  13 0 0 0 -3.6" result="specks"/>
+      <feComposite in="SourceGraphic" in2="specks" operator="in"/>
+    </filter>
+  </svg>
   <header class="site-header" id="top">
     <a class="brand" href="/" aria-label="REWEAR VINTAGE — наверх">Rewear</a>
     <nav class="header-nav" aria-label="Разделы"><a href="#catalog">Каталог</a><a href="#archive" id="archive-link" hidden>Архив</a></nav>
