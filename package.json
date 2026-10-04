@@ -4,6 +4,6 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "check": "node --check app.js && node --check api/order.js && node --check api/telegram.js && node --check lib/catalog.js && node --check lib/telegram.js && node --check lib/github.js"
+    "check": "node --check app.js && node --check api/telegram.js && node --check lib/catalog.js && node --check lib/telegram.js && node --check lib/github.js"
   }
 }

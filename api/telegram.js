@@ -1,7 +1,7 @@
 import { getCatalog, saveCatalog, savePhoto } from '../lib/github.js';
 import { isOwner, parseCommand, telegramCall } from '../lib/telegram.js';
 
-const help = 'Команды:\n/add Название | Цена | Категория | Размеры через запятую | Описание — можно приложить фото\n/edit ID | Название | Цена | Категория | Размеры | Описание\n/delete ID\n/hide ID\n/show ID\n/list';
+const help = 'Команды:\n/add Название | Цена | Описание — можно приложить фото\n/edit ID | Название | Цена | Описание\n/delete ID\n/hide ID\n/show ID\n/list';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();

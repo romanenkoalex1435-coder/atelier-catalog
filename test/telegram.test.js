@@ -9,13 +9,13 @@ test('only configured owner can change catalog', () => {
 });
 
 test('photo caption parses a new product', () => {
-  assert.deepEqual(parseCommand('/add Куртка | 4900 | Верхняя одежда | S, M | Хорошее состояние'), {
-    type: 'add', fields: { title: 'Куртка', price: 4900, category: 'Верхняя одежда', sizes: ['S', 'M'], description: 'Хорошее состояние' }
+  assert.deepEqual(parseCommand('/add Куртка | 4900 | Хорошее состояние'), {
+    type: 'add', fields: { title: 'Куртка', price: 4900, description: 'Хорошее состояние' }
   });
 });
 
 test('edit and delete commands require safe product identifiers', () => {
   assert.equal(parseCommand('/delete abc-12').id, 'abc-12');
   assert.throws(() => parseCommand('/delete ../secret'));
-  assert.equal(parseCommand('/edit abc-12 | Куртка | 5000 | Одежда | M | Отличная').type, 'edit');
+  assert.equal(parseCommand('/edit abc-12 | Куртка | 5000 | Отличная').type, 'edit');
 });
