@@ -23,7 +23,7 @@
 .row { display: flex; gap: 10px; flex-wrap: wrap; }
 .stage { position: relative; width: fit-content; max-width: 100%; }
 .preview { display: block; width: auto; height: auto; max-width: 100%; max-height: 380px; cursor: crosshair; }
-.apin { position: absolute; width: 24px; height: 24px; transform: translate(-50%, -50%); display: grid; place-items: center; border: 1px solid var(--ink); border-radius: 50%; background: rgba(35, 28, 23, .85); color: var(--ink); font-size: 11px; font-weight: 600; pointer-events: none; }
+.apin { position: absolute; width: 24px; height: 24px; transform: translate(-50%, -50%); display: grid; place-items: center; border: 1px solid #f1e9d8; border-radius: 50%; background: rgba(26, 24, 20, .8); color: #f1e9d8; font-size: 11px; font-weight: 600; pointer-events: none; }
 .pin-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .pin-list li { display: grid; grid-template-columns: 24px 1fr auto; gap: 8px; align-items: center; }
 .pin-list .num { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--steel); border-radius: 50%; font-size: 11px; color: var(--steel); }
