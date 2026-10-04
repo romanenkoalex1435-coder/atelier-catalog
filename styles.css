@@ -1,3 +1,5 @@
+@font-face { font-family: 'Caprasimo'; font-style: normal; font-weight: 400; font-display: swap; src: url(/fonts/caprasimo-latin.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122; }
+
 /* REWEAR VINTAGE: warm milk one tone darker, hairline grid, square forms. See DESIGN_SYSTEM.md */
 :root {
   --paper: #ddd4c0;
@@ -17,7 +19,7 @@
   --gutter: 16px;
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
   --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
-  --serif: 'Instrument Serif', 'Times New Roman', Georgia, serif;
+  --logo: 'Caprasimo', 'Cooper Black', 'Chunk Five', Georgia, serif;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -27,13 +29,11 @@ a { color: inherit; text-underline-offset: 3px; }
 button { font: inherit; color: inherit; cursor: pointer; }
 h1, h2, h3, p, ol { margin: 0; }
 [hidden] { display: none !important; }
-.serif { font-family: var(--serif); font-weight: 400; letter-spacing: 0; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 /* header: three hairline cells, brand | sections | cart */
 .site-header { position: sticky; top: 0; z-index: 20; display: grid; grid-template-columns: auto 1fr auto; align-items: stretch; height: calc(52px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); background: var(--material); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); border-bottom: 1px solid var(--line); }
-.brand { display: flex; align-items: center; padding: 0 var(--gutter); border-right: 1px solid var(--line); font: 600 15px/1 var(--font-display); letter-spacing: .08em; text-decoration: none; }
-.brand .serif { font-size: 22px; letter-spacing: .02em; margin-right: 1px; }
+.brand { display: flex; align-items: center; padding: 0 var(--gutter); border-right: 1px solid var(--line); font: 400 24px/1 var(--logo); letter-spacing: 0; text-decoration: none; }
 .header-nav { display: flex; align-items: center; gap: 20px; padding: 0 var(--gutter); font-size: 13px; }
 .header-nav a { text-decoration: none; color: var(--steel); transition: color .15s; }
 .header-nav a:hover { color: var(--ink); }
@@ -42,16 +42,17 @@ h1, h2, h3, p, ol { margin: 0; }
 .cart-toggle span { color: inherit; }
 .cart-toggle span::before { content: '('; } .cart-toggle span::after { content: ')'; }
 
-/* masthead: big wordmark, serif RE against grotesk WEAR */
-.masthead-hero { position: relative; display: flex; align-items: flex-end; min-height: clamp(150px, 30vw, 400px); padding: 28px var(--gutter) 22px; }
-.masthead h1 { display: flex; font: 600 clamp(48px, 18.5vw, 300px)/.86 var(--font-display); letter-spacing: -.045em; margin-left: -.03em; }
-.masthead h1 .serif { font-size: 1.12em; letter-spacing: -.02em; line-height: .78; }
+/* masthead: retro wordmark on the rug */
+.masthead-hero { position: relative; display: flex; align-items: flex-end; min-height: clamp(170px, 30vw, 400px); padding: 28px var(--gutter) 22px; }
+.masthead h1 { display: flex; font: 400 clamp(56px, 21.5vw, 380px)/.95 var(--logo); letter-spacing: -.01em; }
+/* retro logotype: cream letters, dark outline and a hard offset shadow (only on top of the rug) */
+.masthead-hero.has-hero h1 { -webkit-text-stroke: .05em #1a1814; paint-order: stroke fill; text-shadow: .06em .07em 0 #1a1814; }
 /* optional rug backdrop: appears when /images/hero.webp exists */
 .masthead-hero.has-hero { color: #f1e9d8; background: #6b2a1c url(/images/hero.webp) center / cover; }
 .masthead-hero.has-hero::before { content: ''; position: absolute; inset: 0; background: rgba(26, 24, 20, .34); }
 .masthead-hero h1 { position: relative; }
 .masthead-row { margin-left: var(--gutter); margin-right: var(--gutter); }
-.masthead h1 .word { display: inline-block; white-space: nowrap; overflow: hidden; vertical-align: top; padding: .06em .02em .12em; margin: -.06em -.02em -.12em; }
+.word { display: inline-block; white-space: nowrap; overflow: hidden; vertical-align: top; padding: .1em .14em .24em .06em; margin: -.1em -.14em -.24em -.06em; }
 .ch { display: inline-block; letter-spacing: inherit; transform: translateY(115%); animation: chup 1s cubic-bezier(.2, .85, .2, 1) forwards; animation-delay: calc(var(--c) * 45ms + 80ms); }
 @keyframes chup { to { transform: none; } }
 .masthead-row { display: flex; justify-content: space-between; align-items: baseline; gap: 24px; margin-top: 0; padding: 14px 0 18px; border-bottom: 1px solid var(--line); opacity: 0; animation: fade .9s ease forwards .7s; }
@@ -151,7 +152,7 @@ h1, h2, h3, p, ol { margin: 0; }
 
 @media (min-width: 720px) {
   :root { --gutter: 32px; }
-  .masthead h1 { font-size: 20.5vw; }
+  .masthead h1 { font-size: 24vw; }
     .product-grid { grid-template-columns: repeat(3, 1fr); }
   .steps { grid-template-columns: repeat(3, 1fr); }
   .steps li { border-bottom: 0; border-right: 1px solid var(--line); }
