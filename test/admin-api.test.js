@@ -54,10 +54,12 @@ test('admin can add a product with a photo and commit goes to GitHub', async () 
     };
     const jpeg = 'data:image/jpeg;base64,' + Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]).toString('base64');
     const r = res();
-    await products({ method: 'POST', headers: { ...json, cookie, origin: 'https://site.test' }, query: {}, body: { title: 'Куртка', price: 4900, description: 'Ок', image: jpeg } }, r);
+    await products({ method: 'POST', headers: { ...json, cookie, origin: 'https://site.test' }, query: {}, body: { title: 'Куртка', price: 4900, description: 'Ок', images: [jpeg, jpeg], notes: [{ x: 10, y: 20, img: 1, type: 'flaw', text: 'Пятно' }] } }, r);
     assert.equal(r.code, 200);
     assert.equal(r.body.products[0].title, 'Куртка');
-    assert.match(r.body.products[0].image, /^\/images\/p-[a-z0-9]+\.jpg$/);
+    assert.match(r.body.products[0].image, /^\/images\/p-[a-z0-9-]+\.jpg$/);
+    assert.equal(r.body.products[0].images.length, 2);
+    assert.deepEqual(r.body.products[0].notes[0], { x: 10, y: 20, img: 1, type: 'flaw', text: 'Пятно' });
     assert.ok(calls.some(c => c.method === 'PUT' && c.url.includes('images/')));
     assert.ok(calls.some(c => c.method === 'PUT' && c.url.endsWith('data/products.json')));
   });
@@ -73,5 +75,24 @@ test('products API rejects cross-origin mutations and bad input', async () => {
     const bad = res();
     await products({ method: 'POST', headers: { ...json, cookie }, query: {}, body: { title: '', price: -5 } }, bad);
     assert.equal(bad.code, 400);
+  });
+});
+
+test('PUT keeps own photos, rejects foreign paths, toggles reserved', async () => {
+  await withEnv(async () => {
+    const cookie = await session();
+    const catalog = [{ id: 'p-one', title: 'Куртка', price: 100, description: '', image: '/images/p-one.jpg', images: ['/images/p-one.jpg'], notes: [], active: true, sold: false }];
+    global.fetch = async (url, options = {}) => {
+      if (url.endsWith('data/products.json') && !options.method) return { ok: true, json: async () => ({ sha: 'abc', content: Buffer.from(JSON.stringify(catalog)).toString('base64') }) };
+      return { ok: true, json: async () => ({}) };
+    };
+    const headers = { ...json, cookie };
+    const ok = res();
+    await products({ method: 'PUT', headers, query: { id: 'p-one' }, body: { reserved: true, images: ['/images/p-one.jpg'] } }, ok);
+    assert.equal(ok.code, 200);
+    assert.equal(ok.body.products[0].reserved, true);
+    const foreign = res();
+    await products({ method: 'PUT', headers, query: { id: 'p-one' }, body: { images: ['/images/other.jpg'] } }, foreign);
+    assert.equal(foreign.code, 400);
   });
 });

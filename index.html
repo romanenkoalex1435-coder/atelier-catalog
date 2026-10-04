@@ -4,8 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#ddd4c0">
-  <meta name="description" content="REWEAR VINTAGE — винтажная одежда в единственном экземпляре. Выберите вещь и напишите продавцу в Telegram.">
+  <meta name="description" content="REWEAR VINTAGE — винтаж в единственном экземпляре. Выберите вещь и напишите нам в Telegram.">
   <title>REWEAR VINTAGE — винтажная одежда</title>
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="REWEAR VINTAGE">
+  <meta property="og:title" content="REWEAR VINTAGE — винтаж в единственном экземпляре">
+  <meta property="og:description" content="Каждая вещь одна. Паспорт, детали и дефекты на фото. Заказ в Telegram.">
+  <meta property="og:image" content="https://atelier-catalog.vercel.app/og.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
@@ -35,12 +43,14 @@
         <h1 id="page-title" aria-label="REWEAR VINTAGE"><span data-w>Rewear</span></h1>
       </div>
       <div class="masthead-row">
-        <p class="masthead-line">Винтаж в единственном экземпляре. Выбираете вещь, пишете продавцу в Telegram.</p>
+        <p class="masthead-line">Одна вещь — один экземпляр. Выбираете, пишете нам в Telegram, договариваемся об оплате и доставке.</p>
+        <a class="textlink strong" data-telegram href="#" target="_blank" rel="noopener noreferrer">Написать в Telegram →</a>
       </div>
     </section>
 
     <section class="catalog" id="catalog" aria-label="Каталог">
       <div class="section-head"><h2 class="display" aria-label="Каталог">Catalog</h2><p class="section-meta"><span>Каталог</span><span id="catalog-count"></span></p></div>
+      <div class="toolbar" id="toolbar" hidden></div>
       <div class="product-grid" id="product-grid" aria-live="polite"><p class="loading">Загружаем каталог…</p></div>
     </section>
 
@@ -51,8 +61,15 @@
   </main>
 
   <footer class="site-footer">
-    <ol class="steps"><li>Выберите вещь</li><li>Добавьте в корзину</li><li>Напишите продавцу в Telegram: сообщение уже готово</li></ol>
-    <p class="fine">Витрина демонстрационная: вещи и цены приведены для примера. Наличие и итоговую цену подтверждает продавец. Мы ничего о вас не собираем.</p>
+    <ol class="steps"><li>Выберите вещь</li><li>Добавьте в корзину</li><li>Напишите нам в Telegram: сообщение уже готово</li></ol>
+    <div class="footer-cta">
+      <h2 class="display" aria-label="Напишите нам">Say hi</h2>
+      <p>Подскажем по замерам и деталям, договоримся об оплате и доставке.</p>
+      <a class="primary cta" data-telegram href="#" target="_blank" rel="noopener noreferrer"><span>Написать в Telegram</span><span>→</span></a>
+    </div>
+    <div class="footer-bar"><span>© Rewear Vintage</span><a href="#top">Наверх ↑</a></div>
+    <p class="fine" id="demo-note" hidden>Это демонстрационная витрина: вещи и цены приведены для примера.</p>
+    <p class="fine">Наличие и итоговую цену подтверждает продавец. Мы ничего о вас не собираем.</p>
   </footer>
 
   <div class="scrim" id="scrim" hidden></div>

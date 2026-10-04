@@ -1,8 +1,12 @@
 const $ = id => document.getElementById(id);
 const loginForm = $('login-form'), panel = $('panel'), list = $('list'), editor = $('editor'), notice = $('notice'), barActions = $('bar-actions');
-const preview = $('preview'), stage = $('stage'), stagePins = $('stage-pins'), pinList = $('pin-list'), pinHint = $('pin-hint');
+const preview = $('preview'), stagePins = $('stage-pins'), pinList = $('pin-list'), strip = $('photo-strip'), pinSection = $('pin-section'), photoInput = $('photo-input');
 const PASSPORT = ['brand', 'era', 'origin', 'condition', 'measures'];
-let products = [], editingId = null, imageData = '', notes = [];
+const MAX_PHOTOS = 8;
+// photos: [{ src }] where src is an existing /images path or a new JPEG data URL; notes point at a photo object so reordering keeps them attached
+let products = [], editingId = null, photos = [], notes = [], selected = 0;
+
+const photosOf = product => (Array.isArray(product.images) && product.images.length ? product.images : product.image ? [product.image] : []);
 
 function say(message, error = false) {
   notice.hidden = !message;
@@ -28,6 +32,20 @@ function showPanel() {
   render();
 }
 
+function button(label, onClick, extra = '') {
+  const el = document.createElement('button');
+  el.type = 'button'; el.className = `btn ghost ${extra}`.trim(); el.textContent = label;
+  el.addEventListener('click', onClick);
+  return el;
+}
+
+function statusOf(product) {
+  if (!product.active) return 'скрыто';
+  if (product.sold) return 'продано (архив)';
+  if (product.reserved) return 'бронь';
+  return 'в продаже';
+}
+
 function render() {
   list.replaceChildren();
   if (!products.length) {
@@ -45,25 +63,20 @@ function render() {
     const text = document.createElement('div');
     const title = document.createElement('h3'); title.textContent = product.title;
     const meta = document.createElement('p'); meta.className = 'meta';
-    meta.textContent = `${product.price.toLocaleString('ru-RU')} ₽ · ${!product.active ? 'скрыто' : product.sold ? 'продано (архив)' : 'в продаже'}`;
+    meta.textContent = `${product.price.toLocaleString('ru-RU')} ₽ · ${statusOf(product)} · фото: ${photosOf(product).length}`;
     text.append(title, meta);
     const row = document.createElement('div'); row.className = 'row';
+    const put = body => mutate(`/api/admin/products?id=${product.id}`, 'PUT', body);
     row.append(
       button('Изменить', () => openEditor(product)),
-      button(product.sold ? 'Вернуть в продажу' : 'Продано', () => mutate(`/api/admin/products?id=${product.id}`, 'PUT', { sold: !product.sold })),
-      button(product.active ? 'Скрыть' : 'Показать', () => mutate(`/api/admin/products?id=${product.id}`, 'PUT', { active: !product.active })),
+      button(product.reserved ? 'Снять бронь' : 'Бронь', () => put({ reserved: !product.reserved })),
+      button(product.sold ? 'Вернуть в продажу' : 'Продано', () => put({ sold: !product.sold })),
+      button(product.active ? 'Скрыть' : 'Показать', () => put({ active: !product.active })),
       button('Удалить', () => { if (confirm(`Удалить «${product.title}» навсегда?`)) mutate(`/api/admin/products?id=${product.id}`, 'DELETE'); }, 'danger')
     );
     item.append(thumb, text, row);
     list.append(item);
   }
-}
-
-function button(label, onClick, extra = '') {
-  const el = document.createElement('button');
-  el.type = 'button'; el.className = `btn ghost ${extra}`.trim(); el.textContent = label;
-  el.addEventListener('click', onClick);
-  return el;
 }
 
 async function mutate(path, method, body) {
@@ -79,21 +92,45 @@ async function mutate(path, method, body) {
   }
 }
 
+/* ---------- editor ---------- */
 function openEditor(product) {
-  editingId = product?.id ?? null; imageData = '';
+  editingId = product?.id ?? null;
   $('editor-title').textContent = product ? 'Изменить вещь' : 'Новая вещь';
   editor.title.value = product?.title ?? '';
   editor.price.value = product?.price ?? '';
   editor.description.value = product?.description ?? '';
   for (const name of PASSPORT) editor[name].value = product?.[name] ?? '';
-  editor.photo.value = '';
-  notes = (product?.notes || []).map(note => ({ ...note }));
-  stage.hidden = !product?.image;
-  if (product?.image) preview.src = product.image;
-  renderNotes();
+  photos = product ? photosOf(product).map(src => ({ src })) : [];
+  notes = (product?.notes || []).map(note => ({ x: note.x, y: note.y, text: note.text, type: note.type === 'flaw' ? 'flaw' : 'detail', photo: photos[note.img || 0] })).filter(note => note.photo);
+  selected = 0;
+  renderPhotos();
   editor.hidden = false;
   editor.title.focus();
   editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function renderPhotos() {
+  selected = Math.min(selected, Math.max(photos.length - 1, 0));
+  strip.replaceChildren(...photos.map((photo, i) => {
+    const li = document.createElement('li');
+    li.className = i === selected ? 'on' : '';
+    const pick = document.createElement('button');
+    pick.type = 'button'; pick.className = 'photo-pick'; pick.setAttribute('aria-label', `Фото ${i + 1}${i === 0 ? ' (обложка)' : ''}`);
+    const img = document.createElement('img'); img.src = photo.src; img.alt = '';
+    pick.append(img);
+    pick.addEventListener('click', () => { selected = i; renderPhotos(); });
+    const tools = document.createElement('div'); tools.className = 'photo-tools';
+    const move = (label, delta) => { const el = button(label, () => { const j = i + delta; [photos[i], photos[j]] = [photos[j], photos[i]]; selected = j; renderPhotos(); }); el.setAttribute('aria-label', delta < 0 ? 'Сдвинуть влево' : 'Сдвинуть вправо'); el.disabled = i + delta < 0 || i + delta >= photos.length; return el; };
+    const del = button('×', () => { notes = notes.filter(note => note.photo !== photo); photos.splice(i, 1); renderPhotos(); });
+    del.setAttribute('aria-label', 'Убрать фото');
+    tools.append(move('←', -1), move('→', 1), del);
+    li.append(pick, tools);
+    return li;
+  }));
+  $('photo-input').closest('label').hidden = photos.length >= MAX_PHOTOS;
+  pinSection.hidden = !photos.length;
+  if (photos.length) preview.src = photos[selected].src;
+  renderNotes();
 }
 
 // Shrink to max 1600px JPEG in the browser: keeps requests small and the repo light.
@@ -103,65 +140,67 @@ async function toJpeg(file) {
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
   canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/jpeg', 0.85);
+  return canvas.toDataURL('image/jpeg', 0.82);
 }
 
-editor.photo.addEventListener('change', async () => {
-  const file = editor.photo.files[0];
-  if (!file) return;
-  try {
-    imageData = await toJpeg(file);
-    preview.src = imageData; stage.hidden = false;
-    notes = [];
-    renderNotes();
-  } catch {
-    imageData = ''; editor.photo.value = '';
-    say('Не удалось прочитать фото. Выберите JPEG или PNG.', true);
+photoInput.addEventListener('change', async () => {
+  const files = [...photoInput.files].slice(0, MAX_PHOTOS - photos.length);
+  photoInput.value = '';
+  for (const file of files) {
+    try { photos.push({ src: await toJpeg(file) }); }
+    catch { say('Не удалось прочитать одно из фото. Выберите JPEG или PNG.', true); }
   }
+  selected = Math.max(photos.length - files.length, 0);
+  renderPhotos();
+});
+
+function renderNotes() {
+  const current = photos[selected];
+  stagePins.replaceChildren(...notes.map((note, i) => {
+    if (note.photo !== current) return '';
+    const pin = document.createElement('span');
+    pin.className = `apin${note.type === 'flaw' ? ' flaw' : ''}`; pin.textContent = i + 1;
+    pin.style.left = `${note.x}%`; pin.style.top = `${note.y}%`;
+    return pin;
+  }).filter(Boolean));
+  pinList.replaceChildren(...notes.map((note, i) => {
+    const row = document.createElement('li');
+    const num = document.createElement('span'); num.className = `num${note.type === 'flaw' ? ' flaw' : ''}`; num.textContent = i + 1;
+    const input = document.createElement('input');
+    input.value = note.text; input.maxLength = 80; input.placeholder = 'Что здесь? Например: ручная заплатка боро';
+    input.setAttribute('aria-label', `Подпись точки ${i + 1} (фото ${photos.indexOf(note.photo) + 1})`);
+    input.addEventListener('input', () => { note.text = input.value; });
+    const type = button(note.type === 'flaw' ? 'Дефект' : 'Деталь', () => { note.type = note.type === 'flaw' ? 'detail' : 'flaw'; renderNotes(); }, note.type === 'flaw' ? 'danger' : '');
+    type.title = 'Переключить: деталь или дефект';
+    const del = button('×', () => { notes.splice(i, 1); renderNotes(); });
+    del.setAttribute('aria-label', 'Убрать точку');
+    row.append(num, input, type, del);
+    const where = document.createElement('small'); where.textContent = `фото ${photos.indexOf(note.photo) + 1}`;
+    row.append(where);
+    return row;
+  }));
+}
+
+preview.addEventListener('click', event => {
+  if (notes.length >= 12) return say('Не больше 12 точек.', true);
+  const box = preview.getBoundingClientRect();
+  notes.push({ x: Math.round((event.clientX - box.left) / box.width * 1000) / 10, y: Math.round((event.clientY - box.top) / box.height * 1000) / 10, text: '', type: 'detail', photo: photos[selected] });
+  renderNotes();
+  pinList.querySelector('li:last-child input')?.focus();
 });
 
 editor.addEventListener('submit', async event => {
   event.preventDefault();
   const save = $('save');
   save.disabled = true;
-  const body = { title: editor.title.value, price: Number(editor.price.value), description: editor.description.value };
+  const body = { title: editor.title.value, price: Number(editor.price.value), description: editor.description.value, images: photos.map(photo => photo.src) };
   for (const name of PASSPORT) body[name] = editor[name].value;
-  if (imageData) body.image = imageData;
-  body.notes = notes.filter(note => note.text.trim());
+  body.notes = notes.filter(note => note.text.trim()).map(note => ({ x: note.x, y: note.y, text: note.text, type: note.type, img: photos.indexOf(note.photo) }));
   const ok = editingId
     ? await mutate(`/api/admin/products?id=${editingId}`, 'PUT', body)
     : await mutate('/api/admin/products', 'POST', body);
   save.disabled = false;
   if (ok) editor.hidden = true;
-});
-
-function renderNotes() {
-  pinHint.hidden = stage.hidden;
-  stagePins.replaceChildren(...notes.map((note, i) => {
-    const pin = document.createElement('span');
-    pin.className = 'apin'; pin.textContent = i + 1;
-    pin.style.left = `${note.x}%`; pin.style.top = `${note.y}%`;
-    return pin;
-  }));
-  pinList.replaceChildren(...notes.map((note, i) => {
-    const row = document.createElement('li');
-    const num = document.createElement('span'); num.className = 'num'; num.textContent = i + 1;
-    const input = document.createElement('input');
-    input.value = note.text; input.maxLength = 80; input.placeholder = 'Что здесь? Например: ручная заплатка боро';
-    input.setAttribute('aria-label', `Подпись точки ${i + 1}`);
-    input.addEventListener('input', () => { note.text = input.value; });
-    const del = button('Убрать', () => { notes.splice(i, 1); renderNotes(); });
-    row.append(num, input, del);
-    return row;
-  }));
-}
-
-preview.addEventListener('click', event => {
-  if (notes.length >= 8) return say('Не больше 8 точек.', true);
-  const box = preview.getBoundingClientRect();
-  notes.push({ x: Math.round((event.clientX - box.left) / box.width * 1000) / 10, y: Math.round((event.clientY - box.top) / box.height * 1000) / 10, text: '' });
-  renderNotes();
-  pinList.querySelector('li:last-child input')?.focus();
 });
 
 $('add').addEventListener('click', () => openEditor(null));

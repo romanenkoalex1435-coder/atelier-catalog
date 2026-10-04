@@ -4,6 +4,6 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "check": "node --check app.js && node --check admin/admin.js && node --check api/admin/login.js && node --check api/admin/logout.js && node --check api/admin/products.js && node --check lib/auth.js && node --check lib/catalog.js && node --check lib/github.js"
+    "check": "node --check app.js && node --check admin/admin.js && node --check api/admin/login.js && node --check api/admin/logout.js && node --check api/admin/products.js && node --check api/share.js && node --check lib/auth.js && node --check lib/catalog.js && node --check lib/github.js"
   }
 }

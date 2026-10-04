@@ -151,24 +151,59 @@ document.addEventListener('keydown', event => {
 isDesktop.addEventListener('change', () => { if (sheetOpen) setPos(0); });
 
 /* ---------- catalog ---------- */
+const photosOf = product => (Array.isArray(product.images) && product.images.length ? product.images : product.image ? [product.image] : []).filter(src => /^\/images\/[a-z0-9.-]+$/.test(src));
+
 function imageMarkup(product) {
-  return /^\/images\/[a-z0-9.-]+$/.test(product.image || '') ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.title)}" loading="lazy">` : `<span class="placeholder">${hanger}</span>`;
+  const [first] = photosOf(product);
+  return first ? `<img src="${escapeHtml(first)}" alt="${escapeHtml(product.title)}" loading="lazy">` : `<span class="placeholder">${hanger}</span>`;
 }
 
-function tileMarkup(product, index) {
+const filters = { era: '', brand: '', sort: 'new' };
+const decadeOf = value => {
+  const match = String(value || '').match(/(\d{4}|\d{2})/);
+  if (!match) return 0;
+  let year = Number(match[1]);
+  if (match[1].length === 2) year += year >= 40 ? 1900 : 2000;
+  return Math.floor(year / 10) * 10;
+};
+const decadeLabel = decade => `${String(decade % 100).padStart(2, '0')}-е`;
+
+function tileMarkup(product) {
   const sub = [product.era, product.condition].filter(Boolean).join(' · ');
   const demo = product.id.startsWith('demo-') ? '<span class="pill">Пример</span>' : '';
-  const sticker = product.sold ? '<span class="sticker gone">Ушло</span>' : `<span class="sticker">${currency(product.price)}</span>`;
-  return `<button class="tile${product.sold ? ' sold' : ''}" type="button" data-id="${escapeHtml(product.id)}"><div class="tile-image">${imageMarkup(product)}${demo}${sticker}</div><div class="tile-meta"><h3>${escapeHtml(product.title)}</h3>${sub ? `<span class="sub">${escapeHtml(sub)}</span>` : ''}</div></button>`;
+  const sticker = product.sold ? '<span class="sticker gone">Ушло</span>' : product.reserved ? '<span class="sticker hold">Бронь</span>' : `<span class="sticker">${currency(product.price)}</span>`;
+  const count = photosOf(product).length;
+  return `<button class="tile${product.sold ? ' sold' : ''}${product.reserved ? ' reserved' : ''}" type="button" data-id="${escapeHtml(product.id)}"><div class="tile-image">${imageMarkup(product)}${demo}${sticker}${count > 1 ? `<span class="count" aria-label="Фото: ${count}">${count} фото</span>` : ''}</div><div class="tile-meta"><h3>${escapeHtml(product.title)}</h3>${sub ? `<span class="sub">${escapeHtml(sub)}</span>` : ''}</div></button>`;
+}
+
+function visibleProducts() {
+  const list = products.filter(product => !product.sold && (!filters.era || decadeOf(product.era) === Number(filters.era)) && (!filters.brand || product.brand === filters.brand));
+  if (filters.sort === 'asc') list.sort((a, b) => a.price - b.price);
+  if (filters.sort === 'desc') list.sort((a, b) => b.price - a.price);
+  return list;
+}
+
+function renderToolbar() {
+  const toolbar = document.querySelector('#toolbar');
+  const live = products.filter(product => !product.sold);
+  const eras = [...new Set(live.map(product => decadeOf(product.era)).filter(Boolean))].sort();
+  const brands = [...new Set(live.map(product => product.brand).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
+  toolbar.hidden = live.length < 3;
+  if (toolbar.hidden) return;
+  const chip = (group, value, label) => `<button class="chip" type="button" data-filter="${group}" data-value="${escapeHtml(value)}" aria-pressed="${String(filters[group] === value)}">${escapeHtml(label)}</button>`;
+  toolbar.innerHTML = `<div class="chips" role="group" aria-label="Фильтры">${chip('era', '', 'Все')}${eras.map(decade => chip('era', String(decade), decadeLabel(decade))).join('')}${brands.length ? '<span class="chips-gap" aria-hidden="true"></span>' : ''}${brands.map(brand => chip('brand', brand, brand)).join('')}</div><label class="sort"><span>Сортировка</span><select id="sort"><option value="new">Сначала новые</option><option value="asc">Дешевле</option><option value="desc">Дороже</option></select></label>`;
+  toolbar.querySelector('#sort').value = filters.sort;
 }
 
 function renderProducts() {
-  const live = products.filter(product => !product.sold), sold = products.filter(product => product.sold);
-  grid.innerHTML = live.length ? live.map(tileMarkup).join('') : '<p class="empty">Пока ничего нет. Загляните позже.</p>';
+  const sold = products.filter(product => product.sold), live = visibleProducts();
+  const total = products.filter(product => !product.sold).length;
+  grid.innerHTML = live.length ? live.map(tileMarkup).join('') : total ? '<p class="empty">Ничего не нашлось. <button class="textlink" type="button" id="reset-filters">Сбросить фильтры</button></p>' : '<p class="empty">Пока ничего нет. Загляните позже.</p>';
   archiveGrid.innerHTML = sold.map(tileMarkup).join('');
   document.querySelector('#archive').hidden = document.querySelector('#archive-link').hidden = !sold.length;
-  document.querySelector('#catalog-count').textContent = live.length ? `${live.length} ${plural(live.length, 'вещь', 'вещи', 'вещей')}` : '';
+  document.querySelector('#catalog-count').textContent = total ? `${live.length === total ? total : `${live.length} из ${total}`} ${plural(total, 'вещь', 'вещи', 'вещей')}` : '';
   document.querySelector('#archive-count').textContent = sold.length ? `ушло: ${sold.length}` : '';
+  observeTiles();
 }
 
 function plural(n, one, few, many) {
@@ -180,23 +215,34 @@ function plural(n, one, few, many) {
 function productView(product) {
   return () => {
     const inCart = cart.some(item => item.id === product.id);
+    const photos = photosOf(product);
+    const notes = Array.isArray(product.notes) ? product.notes : [];
     const description = !product.description ? '' : `<p class="sheet-desc">${escapeHtml(product.description)}</p>`;
     const rows = [['Бренд', product.brand], ['Эпоха', product.era], ['Происхождение', product.origin], ['Состояние', product.condition], ['Замеры, см', product.measures]].filter(([, value]) => value);
     const passport = rows.length ? `<h3 class="block-title">Паспорт вещи</h3><dl class="passport">${rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>` : '';
-    const notes = Array.isArray(product.notes) ? product.notes : [];
-    const pins = notes.map((note, i) => `<button class="pin" type="button" data-note="${i}" style="left:${Number(note.x)}%;top:${Number(note.y)}%" aria-label="Деталь ${i + 1}: ${escapeHtml(note.text)}">${i + 1}</button>`).join('');
-    const noteList = notes.length ? `<h3 class="block-title">Детали на фото</h3><ol class="notes">${notes.map((note, i) => `<li><button class="note" type="button" data-note="${i}"><span>${i + 1}</span>${escapeHtml(note.text)}</button></li>`).join('')}</ol>` : '';
+    const pinsFor = index => notes.map((note, i) => (note.img || 0) === index ? `<button class="pin${note.type === 'flaw' ? ' flaw' : ''}" type="button" data-note="${i}" data-img="${index}" style="left:${Number(note.x)}%;top:${Number(note.y)}%" aria-label="${note.type === 'flaw' ? 'Дефект' : 'Деталь'} ${i + 1}: ${escapeHtml(note.text)}">${i + 1}</button>` : '').join('');
+    const slides = photos.length ? photos.map((src, i) => `<figure class="slide"><div class="pinbox"><img src="${escapeHtml(src)}" alt="${escapeHtml(product.title)}, фото ${i + 1} из ${photos.length}"${i ? ' loading="lazy"' : ''}>${pinsFor(i)}</div></figure>`).join('') : `<figure class="slide"><div class="pinbox empty"><span class="placeholder">${hanger}</span></div></figure>`;
+    const dots = photos.length > 1 ? `<span class="counter" id="counter">1 / ${photos.length}</span><div class="dots">${photos.map((_, i) => `<button type="button" class="dot" data-slide="${i}" aria-label="Фото ${i + 1}" aria-current="${i === 0}"></button>`).join('')}</div>` : '';
+    const noteList = notes.length ? `<h3 class="block-title">Детали и дефекты</h3><ol class="notes">${notes.map((note, i) => `<li><button class="note${note.type === 'flaw' ? ' flaw' : ''}" type="button" data-note="${i}" data-img="${note.img || 0}"><span>${i + 1}</span><b>${escapeHtml(note.text)}</b>${note.type === 'flaw' ? '<em>дефект</em>' : ''}</button></li>`).join('')}</ol>` : '';
     let action;
     if (product.sold) action = '<button class="primary" type="button" aria-disabled="true" disabled><span>Ушло к новому владельцу</span></button>';
+    else if (product.reserved) action = '<button class="primary" type="button" aria-disabled="true" disabled><span>Забронировано</span></button>';
     else if (inCart) action = '<button class="primary" id="open-cart" type="button"><span>Уже в корзине</span><span>Открыть →</span></button>';
     else action = `<button class="primary" id="add" type="button"><span>Добавить в корзину</span><span>${currency(product.price)}</span></button>`;
     sheetBody.dataset.product = product.id;
-    sheetBody.innerHTML = `<div class="sheet-image">${imageMarkup(product)}${pins}</div><h2 id="sheet-title">${escapeHtml(product.title)}</h2>${product.sold ? '' : `<p class="sheet-price">${currency(product.price)}</p>`}${description}${passport}${noteList}${action}`;
+    sheetBody.innerHTML = `<div class="gallery"><div class="slides" id="slides" tabindex="0" aria-label="Фото вещи, листайте вбок">${slides}</div>${dots}</div><div class="title-row"><h2 id="sheet-title">${escapeHtml(product.title)}</h2><button class="textlink share" type="button" data-share="${escapeHtml(product.id)}">Поделиться</button></div>${product.sold ? '' : `<p class="sheet-price">${currency(product.price)}</p>`}${description}${passport}${noteList}${action}`;
+    const slidesEl = sheetBody.querySelector('#slides');
+    slidesEl?.addEventListener('scroll', () => {
+      const index = Math.round(slidesEl.scrollLeft / (slidesEl.clientWidth || 1));
+      const counter = sheetBody.querySelector('#counter');
+      if (counter) counter.textContent = `${index + 1} / ${photos.length}`;
+      sheetBody.querySelectorAll('.dot').forEach((dot, i) => dot.setAttribute('aria-current', String(i === index)));
+    }, { passive: true });
   };
 }
 
 function cartView() {
-  cart = cart.filter(item => byId(item.id) && !byId(item.id).sold);
+  cart = cart.filter(item => byId(item.id) && !byId(item.id).sold && !byId(item.id).reserved);
   const lines = cart.map(item => {
     const product = byId(item.id);
     const sub = [product.brand, product.era, product.condition].filter(Boolean).join(' · ');
@@ -212,23 +258,49 @@ function buildMessage() {
   const lines = cart.map((item, index) => {
     const product = byId(item.id);
     return `${index + 1}. ${product.title} — ${currency(product.price)}
-${location.origin}/?product=${product.id}`;
+${location.origin}/p/${product.id}`;
   });
   return `Привет! Зашёл на сайт, очень круто, хочу эти вещи:\n\n${lines.join('\n\n')}\n\nИтого: ${currency(cartTotal())}\nКак можно оформить?`;
 }
 
 document.querySelector('main').addEventListener('click', event => {
+  const chip = event.target.closest('[data-filter]');
+  if (chip) {
+    const group = chip.dataset.filter;
+    filters[group] = filters[group] === chip.dataset.value ? '' : chip.dataset.value;
+    renderToolbar(); renderProducts();
+    return;
+  }
+  if (event.target.closest('#reset-filters')) { Object.assign(filters, { era: '', brand: '' }); renderToolbar(); renderProducts(); return; }
   const tile = event.target.closest('[data-id]');
   const product = tile && byId(tile.dataset.id);
   if (product) openSheet(productView(product));
 });
 
 sheetBody.addEventListener('click', event => {
+  const dot = event.target.closest('[data-slide]');
+  if (dot) {
+    const slidesEl = sheetBody.querySelector('#slides');
+    slidesEl?.scrollTo({ left: Number(dot.dataset.slide) * slidesEl.clientWidth, behavior: reduceMotion.matches ? 'auto' : 'smooth' });
+    return;
+  }
+  const share = event.target.closest('[data-share]');
+  if (share) {
+    const url = `${location.origin}/p/${share.dataset.share}`;
+    const title = byId(share.dataset.share)?.title || 'REWEAR';
+    if (navigator.share) navigator.share({ title, url }).catch(() => {});
+    else navigator.clipboard?.writeText(url).then(() => { share.textContent = 'Ссылка скопирована'; setTimeout(() => { share.textContent = 'Поделиться'; }, 1800); }).catch(() => {});
+    return;
+  }
   const noteButton = event.target.closest('[data-note]');
   if (noteButton) {
     const was = noteButton.classList.contains('on');
     sheetBody.querySelectorAll('[data-note]').forEach(el => el.classList.remove('on'));
-    if (!was) sheetBody.querySelectorAll(`[data-note="${noteButton.dataset.note}"]`).forEach(el => el.classList.add('on'));
+    if (!was) {
+      sheetBody.querySelectorAll(`[data-note="${noteButton.dataset.note}"]`).forEach(el => el.classList.add('on'));
+      const slidesEl = sheetBody.querySelector('#slides');
+      if (slidesEl && noteButton.classList.contains('note')) slidesEl.scrollTo({ left: Number(noteButton.dataset.img) * slidesEl.clientWidth, behavior: reduceMotion.matches ? 'auto' : 'smooth' });
+    }
     return;
   }
   if (event.target.closest('#add')) {
@@ -249,6 +321,12 @@ sheetBody.addEventListener('click', event => {
   }
   const order = event.target.closest('#telegram-order');
   if (order?.getAttribute('aria-disabled') === 'true') event.preventDefault();
+});
+
+document.querySelector('main').addEventListener('change', event => {
+  if (event.target.id !== 'sort') return;
+  filters.sort = event.target.value;
+  renderProducts();
 });
 
 document.querySelector('#cart-toggle').addEventListener('click', () => openSheet(cartView));
@@ -274,18 +352,18 @@ function observeTiles() {
     tile.classList.add('in');
     setTimeout(() => tile.classList.add('done'), 1300);
   }), { rootMargin: '0px 0px -8% 0px', threshold: .08 });
-  document.querySelectorAll('.tile').forEach(tile => io.observe(tile));
+  document.querySelectorAll('.tile:not(.in)').forEach(tile => io.observe(tile));
 }
 
 /* the item flies from the sheet into the cart */
 function flyToCart() {
-  const source = sheet.querySelector('.sheet-image');
+  const source = sheet.querySelector('.slide img') || sheet.querySelector('.placeholder');
   if (!source || reduceMotion.matches) return false;
   const from = source.getBoundingClientRect(), to = document.querySelector('#cart-toggle').getBoundingClientRect();
   const ghost = document.createElement('div');
   ghost.className = 'fly';
   ghost.style.cssText = `left:${from.left}px;top:${from.top}px;width:${from.width}px;height:${from.height}px`;
-  ghost.innerHTML = source.innerHTML;
+  ghost.innerHTML = source.outerHTML;
   document.body.append(ghost);
   const scale = Math.min(34 / from.width, 34 / from.height);
   const dx = to.left + to.width / 2 - 17 - from.left, dy = to.top + to.height / 2 - 17 - from.top;
@@ -309,7 +387,9 @@ async function init() {
     const response = await fetch('/data/products.json', { cache: 'no-store' });
     if (!response.ok) throw new Error('Каталог недоступен.');
     products = (await response.json()).filter(product => product.active);
-    splitHeading(); renderProducts(); observeTiles(); updateCount();
+    splitHeading(); renderToolbar(); renderProducts(); updateCount();
+    document.querySelectorAll('[data-telegram]').forEach(link => { if (sellerTelegram) link.href = `https://t.me/${sellerTelegram}`; else link.hidden = true; });
+    document.querySelector('#demo-note').hidden = !products.some(product => product.id.startsWith('demo-'));
     const selected = byId(new URLSearchParams(location.search).get('product'));
     if (selected) openSheet(productView(selected));
   } catch (error) {

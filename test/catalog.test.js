@@ -19,8 +19,9 @@ test('images must be real JPEGs and ids must be safe', () => {
 });
 
 test('photo notes are validated and rounded', () => {
-  assert.deepEqual(validateNotes([{ x: 12.34, y: 99, text: ' Заплатка ' }]), [{ x: 12.3, y: 99, text: 'Заплатка' }]);
+  assert.deepEqual(validateNotes([{ x: 12.34, y: 99, text: ' Заплатка ' }]), [{ x: 12.3, y: 99, img: 0, type: 'detail', text: 'Заплатка' }]);
+  assert.throws(() => validateNotes([{ x: 1, y: 1, img: 3, text: 'a' }], 2));
   assert.throws(() => validateNotes([{ x: 101, y: 1, text: 'a' }]));
   assert.throws(() => validateNotes([{ x: 1, y: 1, text: '' }]));
-  assert.throws(() => validateNotes(Array(9).fill({ x: 1, y: 1, text: 'a' })));
+  assert.throws(() => validateNotes(Array(13).fill({ x: 1, y: 1, text: 'a' })));
 });
