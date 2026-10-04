@@ -43,12 +43,12 @@ h1, h2, h3, p, ol { margin: 0; }
 .cart-toggle span::before { content: '('; } .cart-toggle span::after { content: ')'; }
 
 /* masthead: retro wordmark on the rug */
-.masthead-hero { position: relative; display: flex; align-items: flex-end; min-height: clamp(170px, 30vw, 400px); padding: 28px var(--gutter) 22px; }
-.masthead h1 { display: flex; font: 400 clamp(56px, 21.5vw, 380px)/.95 var(--logo); letter-spacing: -.01em; }
+.masthead-hero { position: relative; display: flex; align-items: flex-end; min-height: clamp(130px, 19vw, 280px); padding: 28px var(--gutter) 22px; }
+.masthead h1 { display: flex; font: 400 clamp(46px, 15vw, 170px)/.95 var(--logo); letter-spacing: -.01em; }
 /* retro logotype: cream letters, dark outline and a hard offset shadow (only on top of the rug) */
-.masthead-hero.has-hero h1 { -webkit-text-stroke: .05em #1a1814; paint-order: stroke fill; text-shadow: .06em .07em 0 #1a1814; }
+.masthead-hero.has-hero h1 { color: #d6c9a9; -webkit-text-stroke: .045em #1a1814; paint-order: stroke fill; text-shadow: 0.0063em 0.0066em 0 #1a1814, 0.0125em 0.0131em 0 #1a1814, 0.0188em 0.0197em 0 #1a1814, 0.0250em 0.0263em 0 #1a1814, 0.0312em 0.0328em 0 #1a1814, 0.0375em 0.0394em 0 #1a1814, 0.0438em 0.0459em 0 #1a1814, 0.0500em 0.0525em 0 #1a1814, 0.0563em 0.0591em 0 #1a1814, 0.0625em 0.0656em 0 #1a1814, 0.0688em 0.0722em 0 #1a1814, 0.0750em 0.0788em 0 #1a1814, 0.0813em 0.0853em 0 #1a1814, 0.0875em 0.0919em 0 #1a1814, 0.0938em 0.0984em 0 #1a1814, 0.1000em 0.1050em 0 #1a1814; filter: url(#aged); }
 /* optional rug backdrop: appears when /images/hero.webp exists */
-.masthead-hero.has-hero { color: #f1e9d8; background: #6b2a1c url(/images/hero.webp) center / cover; }
+.masthead-hero.has-hero { background: #6b2a1c url(/images/hero.webp) center / cover; }
 .masthead-hero.has-hero::before { content: ''; position: absolute; inset: 0; background: rgba(26, 24, 20, .34); }
 .masthead-hero h1 { position: relative; }
 .masthead-row { margin-left: var(--gutter); margin-right: var(--gutter); }
@@ -152,7 +152,7 @@ h1, h2, h3, p, ol { margin: 0; }
 
 @media (min-width: 720px) {
   :root { --gutter: 32px; }
-  .masthead h1 { font-size: 24vw; }
+  .masthead h1 { font-size: 11.5vw; }
     .product-grid { grid-template-columns: repeat(3, 1fr); }
   .steps { grid-template-columns: repeat(3, 1fr); }
   .steps li { border-bottom: 0; border-right: 1px solid var(--line); }
