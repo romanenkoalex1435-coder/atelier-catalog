@@ -5,14 +5,14 @@
   --paper: #ddd4c0;
   --surface: #ddd4c0;
   --tile: #cdc4ae;
-  --ink: #1a1814;
+  --ink: #2a1b15;
   --on-ink: #eee7d6;
-  --accent: #7a2e2a;
-  --steel: #4f483c;
-  --shade: 26, 24, 20;
+  --accent: #9d3320;
+  --steel: #5b4a3d;
+  --shade: 42, 27, 21;
   --line: rgba(var(--shade), .22);
   --material: rgba(221, 212, 192, .92);
-  --scrim: 26, 24, 20;
+  --scrim: 42, 27, 21;
   --r-s: 0;
   --r-m: 0;
   --r-l: 0;
@@ -29,6 +29,7 @@ a { color: inherit; text-underline-offset: 3px; }
 button { font: inherit; color: inherit; cursor: pointer; }
 h1, h2, h3, p, ol { margin: 0; }
 [hidden] { display: none !important; }
+.display { font: 400 clamp(38px, 7vw, 76px)/1 var(--logo); letter-spacing: -.01em; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 /* header: three hairline cells, brand | sections | cart */
@@ -45,8 +46,8 @@ h1, h2, h3, p, ol { margin: 0; }
 /* masthead: retro wordmark on the rug */
 .masthead-hero { position: relative; display: flex; align-items: flex-end; min-height: clamp(130px, 19vw, 280px); padding: 28px var(--gutter) 22px; }
 .masthead h1 { display: flex; font: 400 clamp(46px, 15vw, 170px)/.95 var(--logo); letter-spacing: -.01em; }
-/* retro logotype: cream letters, dark outline and a hard offset shadow (only on top of the rug) */
-.masthead-hero.has-hero h1 { color: #d6c9a9; -webkit-text-stroke: .045em #1a1814; paint-order: stroke fill; text-shadow: 0.0063em 0.0066em 0 #1a1814, 0.0125em 0.0131em 0 #1a1814, 0.0188em 0.0197em 0 #1a1814, 0.0250em 0.0263em 0 #1a1814, 0.0312em 0.0328em 0 #1a1814, 0.0375em 0.0394em 0 #1a1814, 0.0438em 0.0459em 0 #1a1814, 0.0500em 0.0525em 0 #1a1814, 0.0563em 0.0591em 0 #1a1814, 0.0625em 0.0656em 0 #1a1814, 0.0688em 0.0722em 0 #1a1814, 0.0750em 0.0788em 0 #1a1814, 0.0813em 0.0853em 0 #1a1814, 0.0875em 0.0919em 0 #1a1814, 0.0938em 0.0984em 0 #1a1814, 0.1000em 0.1050em 0 #1a1814; filter: url(#aged); }
+/* retro logotype: aged cream letters, outline and solid extruded shadow in the palette ink (only on top of the rug) */
+.masthead-hero.has-hero h1 { color: #e3d5ae; -webkit-text-stroke: .045em var(--ink); paint-order: stroke fill; text-shadow: 0.0063em 0.0066em 0 var(--ink), 0.0125em 0.0131em 0 var(--ink), 0.0188em 0.0197em 0 var(--ink), 0.0250em 0.0263em 0 var(--ink), 0.0312em 0.0328em 0 var(--ink), 0.0375em 0.0394em 0 var(--ink), 0.0438em 0.0459em 0 var(--ink), 0.0500em 0.0525em 0 var(--ink), 0.0563em 0.0591em 0 var(--ink), 0.0625em 0.0656em 0 var(--ink), 0.0688em 0.0722em 0 var(--ink), 0.0750em 0.0788em 0 var(--ink), 0.0813em 0.0853em 0 var(--ink), 0.0875em 0.0919em 0 var(--ink), 0.0938em 0.0984em 0 var(--ink), 0.1000em 0.1050em 0 var(--ink); filter: url(#aged); }
 /* optional rug backdrop: appears when /images/hero.webp exists */
 .masthead-hero.has-hero { background: #6b2a1c url(/images/hero.webp) center / cover; }
 .masthead-hero.has-hero::before { content: ''; position: absolute; inset: 0; background: rgba(26, 24, 20, .34); }
@@ -61,7 +62,23 @@ h1, h2, h3, p, ol { margin: 0; }
 .index { flex: none; font-size: 12px; color: var(--steel); letter-spacing: .04em; }
 
 /* section bars: (01) → Каталог */
-.section-bar { display: flex; justify-content: space-between; padding: 14px var(--gutter); font-size: 12px; color: var(--steel); letter-spacing: .02em; border-bottom: 1px solid var(--line); }
+.section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 18px var(--gutter) 14px; border-bottom: 1px solid var(--line); }
+.section-meta { display: flex; gap: 14px; font-size: 12px; color: var(--steel); letter-spacing: .02em; }
+
+/* ticker band in the rug red */
+.marquee { overflow: hidden; background: var(--accent); color: var(--on-ink); font: 400 20px/1 var(--logo); padding: 13px 0 11px; white-space: nowrap; border-bottom: 1px solid var(--ink); }
+.marquee-track { display: inline-flex; animation: marquee 38s linear infinite; will-change: transform; }
+.marquee-track span { flex: none; padding-right: .5em; }
+@keyframes marquee { to { transform: translateX(-50%); } }
+
+/* price as a hang tag on the photo */
+.sticker { position: absolute; z-index: 2; right: 8px; top: 10px; padding: 6px 10px 6px 22px; background: var(--accent); color: var(--on-ink); font-size: 13px; font-weight: 600; line-height: 1.1; letter-spacing: .01em; transform: rotate(-4deg); transform-origin: right top; }
+.sticker::before { content: ''; position: absolute; left: 8px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--paper); }
+.sticker.gone { background: var(--steel); }
+
+/* faint paper grain behind everything (backdrop only, photos stay untouched) */
+body::before { content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .5; mix-blend-mode: multiply; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .16 0 0 0 0 .1 0 0 0 0 .08 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+main, .site-footer, .marquee { position: relative; z-index: 1; }
 #archive { margin-top: 40px; border-top: 1px solid var(--line); }
 
 /* catalog: hairline cells, items on a plate */
@@ -76,7 +93,7 @@ h1, h2, h3, p, ol { margin: 0; }
 .placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(var(--shade), .2); }
 .placeholder svg { width: 34%; height: auto; }
 .pill { position: absolute; top: 8px; left: 8px; padding: 3px 8px; background: var(--paper); font-size: 11px; letter-spacing: .04em; color: var(--ink); }
-.tile-meta { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 12px 0; }
+.tile-meta { display: grid; gap: 2px; padding: 12px 12px 0; }
 .tile-meta h3 { font: 500 14px/1.3 var(--font); overflow-wrap: anywhere; }
 .tile-meta .price { font-size: 14px; color: var(--ink); }
 .tile-meta .sub { grid-column: 1 / -1; font-size: 12px; color: var(--steel); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -108,6 +125,7 @@ h1, h2, h3, p, ol { margin: 0; }
 .fly { position: fixed; z-index: 60; margin: 0; overflow: hidden; pointer-events: none; background: var(--tile); transform-origin: top left; will-change: transform; }
 .fly img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .sheet h2 { font: 600 24px/1.15 var(--font-display); letter-spacing: -.02em; }
+.sheet h2.display { font: 400 44px/1 var(--logo); letter-spacing: -.01em; }
 .sheet-image { position: relative; width: fit-content; max-width: 100%; margin: 4px auto 18px; background: var(--tile); }
 .sheet-image img { display: block; width: auto; height: auto; max-width: 100%; max-height: 46dvh; }
 .sheet-image:has(.placeholder) { width: min(100%, 46dvh); aspect-ratio: 1; }
@@ -132,8 +150,8 @@ h1, h2, h3, p, ol { margin: 0; }
 .pin.on { background: var(--accent); border-color: var(--accent); color: var(--on-ink); }
 .fly .pin { display: none; }
 
-.primary { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; height: 52px; margin-top: 24px; padding: 0 18px; background: var(--ink); color: var(--on-ink); border: 0; font-size: 14px; font-weight: 500; text-decoration: none; transition: background-color .2s, opacity .2s; }
-.primary:hover:not([aria-disabled="true"]) { background: var(--accent); }
+.primary { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; height: 52px; margin-top: 24px; padding: 0 18px; background: var(--accent); color: var(--on-ink); border: 0; font-size: 14px; font-weight: 500; text-decoration: none; transition: background-color .2s, opacity .2s; }
+.primary:hover:not([aria-disabled="true"]) { background: var(--ink); }
 .primary[aria-disabled="true"] { background: rgba(var(--shade), .08); color: var(--steel); cursor: not-allowed; }
 
 .cart-line { display: grid; grid-template-columns: 76px 1fr auto; gap: 14px; align-items: start; padding: 16px 0; border-bottom: 1px solid var(--line); }
@@ -166,6 +184,7 @@ h1, h2, h3, p, ol { margin: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+  .marquee-track { animation: none; }
   .tile, .ch, .masthead-row, .enter > * { animation: none !important; opacity: 1 !important; transform: none !important; transition: none !important; }
   .tile-image img, .tile:hover .tile-image img { transition: none; transform: none; }
   .sheet { transition: opacity .2s; }
