@@ -12,7 +12,7 @@
 .admin label { display: grid; gap: 6px; font-size: 14px; color: var(--steel); }
 .admin input, .admin textarea { width: 100%; padding: 11px 12px; font: inherit; font-size: 16px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-s); }
 .admin textarea { resize: vertical; }
-.btn { height: 40px; padding: 0 18px; background: var(--ink); color: var(--on-ink); border: 0; border-radius: 999px; font-weight: 500; transition: background-color .2s, transform .1s; }
+.btn { height: 40px; padding: 0 18px; background: var(--ink); color: var(--on-ink); border: 0; border-radius: 0; font-weight: 500; transition: background-color .2s, transform .1s; }
 .btn:hover { background: var(--accent); }
 .btn:active { transform: scale(.97); }
 .btn:disabled { opacity: .5; cursor: progress; }
@@ -33,3 +33,5 @@
 .item .row { grid-column: 1 / -1; }
 .item .btn { height: 34px; padding: 0 14px; font-size: 14px; }
 @media (min-width: 640px) { .item { grid-template-columns: 64px 1fr auto; } .item .row { grid-column: auto; } }
+
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

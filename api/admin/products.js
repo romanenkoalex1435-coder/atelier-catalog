@@ -1,5 +1,5 @@
 import { isAdmin, sameOrigin } from '../../lib/auth.js';
-import { assertId, decodeImage, validateProduct } from '../../lib/catalog.js';
+import { PASSPORT_FIELDS, assertId, decodeImage, validateProduct } from '../../lib/catalog.js';
 import { deletePhoto, getCatalog, saveCatalog, savePhoto } from '../../lib/github.js';
 
 export default async function handler(req, res) {
@@ -14,7 +14,7 @@ export default async function handler(req, res) {
       const fields = validateProduct(req.body);
       const id = `p-${Date.now().toString(36)}`;
       const image = req.body?.image ? await savePhoto(id, decodeImage(req.body.image)) : '';
-      products.unshift({ id, ...fields, image, active: true });
+      products.unshift({ id, ...fields, image, active: true, sold: false });
       await saveCatalog(products, sha, `Add product ${id}`);
       return res.status(200).json({ products });
     }
@@ -26,8 +26,9 @@ export default async function handler(req, res) {
 
     if (req.method === 'PUT') {
       const body = req.body || {};
-      if ('title' in body || 'price' in body || 'description' in body) Object.assign(product, validateProduct({ ...product, ...body }));
+      if (['title', 'price', 'description', ...PASSPORT_FIELDS].some(key => key in body)) Object.assign(product, validateProduct({ ...product, ...body }));
       if (typeof body.active === 'boolean') product.active = body.active;
+      if (typeof body.sold === 'boolean') product.sold = body.sold;
       let oldImage = '';
       if (body.image) {
         oldImage = product.image;
@@ -47,7 +48,7 @@ export default async function handler(req, res) {
     return res.status(405).end();
   } catch (error) {
     console.error('Admin request failed:', error.message);
-    const known = /^(Название|Цена|Описание|Фото|Файл|Неверный)/.test(error.message);
+    const known = /^(Название|Цена|Описание|Поле|Фото|Файл|Неверный)/.test(error.message);
     return res.status(known ? 400 : 500).json({ error: known ? error.message : 'Не удалось сохранить. Проверьте GITHUB_TOKEN в Vercel и повторите.' });
   }
 }

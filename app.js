@@ -1,4 +1,6 @@
 const grid = document.querySelector('#product-grid');
+const archiveGrid = document.querySelector('#archive-grid');
+const grids = [grid, archiveGrid];
 const sheet = document.querySelector('#sheet');
 const sheetBody = document.querySelector('#sheet-body');
 const sheetHead = document.querySelector('#sheet-head');
@@ -153,21 +155,44 @@ function imageMarkup(product) {
   return /^\/images\/[a-z0-9.-]+$/.test(product.image || '') ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.title)}" loading="lazy">` : `<span class="placeholder">${hanger}</span>`;
 }
 
+function tileMarkup(product, index) {
+  const sub = [product.era, product.condition].filter(Boolean).join(' · ');
+  const demo = product.id.startsWith('demo-') ? '<span class="pill">Пример</span>' : '';
+  return `<button class="tile${product.sold ? ' sold' : ''}" type="button" data-id="${escapeHtml(product.id)}"><div class="tile-image">${imageMarkup(product)}${demo}</div><div class="tile-meta"><h3>${escapeHtml(product.title)}</h3><span class="price">${product.sold ? 'Ушло' : currency(product.price)}</span>${sub ? `<span class="sub">${escapeHtml(sub)}</span>` : ''}</div></button>`;
+}
+
 function renderProducts() {
-  grid.innerHTML = products.length ? products.map((product, index) => `<button class="tile" type="button" data-id="${escapeHtml(product.id)}" style="--i:${index}"><div class="tile-image">${imageMarkup(product)}${product.id.startsWith('demo-') ? '<span class="pill">Пример</span>' : ''}</div><div class="tile-meta"><h3>${escapeHtml(product.title)}</h3><span>${currency(product.price)}</span></div></button>`).join('') : '<p class="empty">Пока ничего нет. Загляните позже.</p>';
+  const live = products.filter(product => !product.sold), sold = products.filter(product => product.sold);
+  grid.innerHTML = live.length ? live.map(tileMarkup).join('') : '<p class="empty">Пока ничего нет. Загляните позже.</p>';
+  archiveGrid.innerHTML = sold.map(tileMarkup).join('');
+  document.querySelector('#archive').hidden = document.querySelector('#archive-link').hidden = !sold.length;
+  document.querySelector('#catalog-count').textContent = live.length ? `${live.length} ${plural(live.length, 'вещь', 'вещи', 'вещей')} · 1 of 1` : '';
+  document.querySelector('#archive-count').textContent = sold.length ? `ушло: ${sold.length}` : '';
+}
+
+function plural(n, one, few, many) {
+  const mod10 = n % 10, mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  return mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? few : many;
 }
 
 function productView(product) {
   return () => {
     const inCart = cart.some(item => item.id === product.id);
-    const description = product.id.startsWith('demo-') ? '' : `<p class="sheet-desc">${escapeHtml(product.description)}</p>`;
+    const description = product.id.startsWith('demo-') || !product.description ? '' : `<p class="sheet-desc">${escapeHtml(product.description)}</p>`;
+    const rows = [['Эпоха', product.era], ['Происхождение', product.origin], ['Состояние', product.condition], ['Замеры, см', product.measures]].filter(([, value]) => value);
+    const passport = rows.length ? `<dl class="passport">${rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>` : '';
+    let action;
+    if (product.sold) action = '<button class="primary" type="button" aria-disabled="true" disabled><span>Ушло к новому владельцу</span></button>';
+    else if (inCart) action = '<button class="primary" id="open-cart" type="button"><span>Уже в корзине</span><span>Открыть →</span></button>';
+    else action = `<button class="primary" id="add" type="button"><span>Добавить в корзину</span><span>${currency(product.price)}</span></button>`;
     sheetBody.dataset.product = product.id;
-    sheetBody.innerHTML = `<div class="sheet-image">${imageMarkup(product)}</div><h2 id="sheet-title">${escapeHtml(product.title)}</h2><p class="sheet-price">${currency(product.price)}</p>${description}${inCart ? '<button class="primary" id="open-cart" type="button">Уже в корзине · открыть</button>' : '<button class="primary" id="add" type="button">Добавить в корзину</button>'}`;
+    sheetBody.innerHTML = `<div class="sheet-image">${imageMarkup(product)}</div><h2 id="sheet-title">${escapeHtml(product.title)}</h2>${product.sold ? '' : `<p class="sheet-price">${currency(product.price)}</p>`}${description}${passport}${action}`;
   };
 }
 
 function cartView() {
-  cart = cart.filter(item => byId(item.id));
+  cart = cart.filter(item => byId(item.id) && !byId(item.id).sold);
   const lines = cart.map(item => {
     const product = byId(item.id);
     return `<div class="cart-line"><div><h3>${escapeHtml(product.title)}</h3><button class="remove" type="button" data-remove="${escapeHtml(item.id)}">Убрать</button></div><strong>${currency(product.price)}</strong></div>`;
@@ -187,7 +212,7 @@ ${location.origin}/?product=${product.id}`;
   return `Привет! Зашёл на сайт, очень круто, хочу эти вещи:\n\n${lines.join('\n\n')}\n\nИтого: ${currency(cartTotal())}\nКак можно оформить?`;
 }
 
-grid.addEventListener('click', event => {
+document.querySelector('main').addEventListener('click', event => {
   const tile = event.target.closest('[data-id]');
   const product = tile && byId(tile.dataset.id);
   if (product) openSheet(productView(product));
@@ -218,11 +243,13 @@ document.querySelector('#cart-toggle').addEventListener('click', () => openSheet
 
 /* ---------- motion ---------- */
 function splitHeading() {
-  const h1 = document.querySelector('#page-title');
-  const text = h1.textContent.trim();
-  h1.setAttribute('aria-label', text);
   let c = 0;
-  h1.innerHTML = text.split(' ').map(word => `<span class="word" aria-hidden="true">${[...word].map(ch => `<span class="ch" style="--c:${c++}">${ch}</span>`).join('')}</span>`).join(' ');
+  document.querySelectorAll('#page-title [data-w]').forEach(word => {
+    const text = word.textContent;
+    word.classList.add('word');
+    word.setAttribute('aria-hidden', 'true');
+    word.innerHTML = [...text].map(ch => `<span class="ch" style="--c:${c++}">${ch}</span>`).join('');
+  });
 }
 
 function observeTiles() {
@@ -231,36 +258,12 @@ function observeTiles() {
     if (!entry.isIntersecting) return;
     const tile = entry.target;
     io.unobserve(tile);
-    tile.style.setProperty('--col', [...grid.children].indexOf(tile) % cols());
+    tile.style.setProperty('--col', [...tile.parentElement.children].indexOf(tile) % cols());
     tile.classList.add('in');
     setTimeout(() => tile.classList.add('done'), 1300);
   }), { rootMargin: '0px 0px -8% 0px', threshold: .08 });
-  grid.querySelectorAll('.tile').forEach(tile => io.observe(tile));
+  document.querySelectorAll('.tile').forEach(tile => io.observe(tile));
 }
-
-if (matchMedia('(hover: hover)').matches) {
-  grid.addEventListener('pointermove', event => {
-    if (reduceMotion.matches) return;
-    const image = event.target.closest('.tile')?.querySelector('.tile-image');
-    if (!image) return;
-    const box = image.getBoundingClientRect();
-    const x = (event.clientX - box.left) / box.width, y = (event.clientY - box.top) / box.height;
-    image.style.setProperty('--ry', `${(x - .5) * 9}deg`);
-    image.style.setProperty('--rx', `${(.5 - y) * 9}deg`);
-    image.style.setProperty('--gx', `${x * 100}%`);
-    image.style.setProperty('--gy', `${y * 100}%`);
-    image.style.setProperty('--glare', '1');
-  });
-  grid.addEventListener('pointerout', event => {
-    const image = event.target.closest('.tile-image');
-    if (!image || image.contains(event.relatedTarget)) return;
-    ['--rx', '--ry'].forEach(name => image.style.setProperty(name, '0deg'));
-    image.style.setProperty('--glare', '0');
-  });
-}
-
-const header = document.querySelector('.site-header');
-new IntersectionObserver(([entry]) => header.classList.toggle('show-brand', !entry.isIntersecting), { rootMargin: '-52px 0px 0px 0px' }).observe(document.querySelector('#page-title'));
 
 /* the item flies from the sheet into the cart */
 function flyToCart() {

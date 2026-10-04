@@ -1,6 +1,7 @@
 const $ = id => document.getElementById(id);
 const loginForm = $('login-form'), panel = $('panel'), list = $('list'), editor = $('editor'), notice = $('notice'), barActions = $('bar-actions');
 const preview = $('preview');
+const PASSPORT = ['era', 'origin', 'condition', 'measures'];
 let products = [], editingId = null, imageData = '';
 
 function say(message, error = false) {
@@ -44,11 +45,12 @@ function render() {
     const text = document.createElement('div');
     const title = document.createElement('h3'); title.textContent = product.title;
     const meta = document.createElement('p'); meta.className = 'meta';
-    meta.textContent = `${product.price.toLocaleString('ru-RU')} ₽ · ${product.active ? 'на сайте' : 'скрыто'}`;
+    meta.textContent = `${product.price.toLocaleString('ru-RU')} ₽ · ${!product.active ? 'скрыто' : product.sold ? 'продано (архив)' : 'в продаже'}`;
     text.append(title, meta);
     const row = document.createElement('div'); row.className = 'row';
     row.append(
       button('Изменить', () => openEditor(product)),
+      button(product.sold ? 'Вернуть в продажу' : 'Продано', () => mutate(`/api/admin/products?id=${product.id}`, 'PUT', { sold: !product.sold })),
       button(product.active ? 'Скрыть' : 'Показать', () => mutate(`/api/admin/products?id=${product.id}`, 'PUT', { active: !product.active })),
       button('Удалить', () => { if (confirm(`Удалить «${product.title}» навсегда?`)) mutate(`/api/admin/products?id=${product.id}`, 'DELETE'); }, 'danger')
     );
@@ -83,6 +85,7 @@ function openEditor(product) {
   editor.title.value = product?.title ?? '';
   editor.price.value = product?.price ?? '';
   editor.description.value = product?.description ?? '';
+  for (const name of PASSPORT) editor[name].value = product?.[name] ?? '';
   editor.photo.value = '';
   preview.hidden = !product?.image;
   if (product?.image) preview.src = product.image;
@@ -118,6 +121,7 @@ editor.addEventListener('submit', async event => {
   const save = $('save');
   save.disabled = true;
   const body = { title: editor.title.value, price: Number(editor.price.value), description: editor.description.value };
+  for (const name of PASSPORT) body[name] = editor[name].value;
   if (imageData) body.image = imageData;
   const ok = editingId
     ? await mutate(`/api/admin/products?id=${editingId}`, 'PUT', body)
