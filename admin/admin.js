@@ -1,8 +1,8 @@
 const $ = id => document.getElementById(id);
 const loginForm = $('login-form'), panel = $('panel'), list = $('list'), editor = $('editor'), notice = $('notice'), barActions = $('bar-actions');
-const preview = $('preview');
-const PASSPORT = ['era', 'origin', 'condition', 'measures'];
-let products = [], editingId = null, imageData = '';
+const preview = $('preview'), stage = $('stage'), stagePins = $('stage-pins'), pinList = $('pin-list'), pinHint = $('pin-hint');
+const PASSPORT = ['brand', 'era', 'origin', 'condition', 'measures'];
+let products = [], editingId = null, imageData = '', notes = [];
 
 function say(message, error = false) {
   notice.hidden = !message;
@@ -87,8 +87,10 @@ function openEditor(product) {
   editor.description.value = product?.description ?? '';
   for (const name of PASSPORT) editor[name].value = product?.[name] ?? '';
   editor.photo.value = '';
-  preview.hidden = !product?.image;
+  notes = (product?.notes || []).map(note => ({ ...note }));
+  stage.hidden = !product?.image;
   if (product?.image) preview.src = product.image;
+  renderNotes();
   editor.hidden = false;
   editor.title.focus();
   editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -109,7 +111,9 @@ editor.photo.addEventListener('change', async () => {
   if (!file) return;
   try {
     imageData = await toJpeg(file);
-    preview.src = imageData; preview.hidden = false;
+    preview.src = imageData; stage.hidden = false;
+    notes = [];
+    renderNotes();
   } catch {
     imageData = ''; editor.photo.value = '';
     say('Не удалось прочитать фото. Выберите JPEG или PNG.', true);
@@ -123,11 +127,41 @@ editor.addEventListener('submit', async event => {
   const body = { title: editor.title.value, price: Number(editor.price.value), description: editor.description.value };
   for (const name of PASSPORT) body[name] = editor[name].value;
   if (imageData) body.image = imageData;
+  body.notes = notes.filter(note => note.text.trim());
   const ok = editingId
     ? await mutate(`/api/admin/products?id=${editingId}`, 'PUT', body)
     : await mutate('/api/admin/products', 'POST', body);
   save.disabled = false;
   if (ok) editor.hidden = true;
+});
+
+function renderNotes() {
+  pinHint.hidden = stage.hidden;
+  stagePins.replaceChildren(...notes.map((note, i) => {
+    const pin = document.createElement('span');
+    pin.className = 'apin'; pin.textContent = i + 1;
+    pin.style.left = `${note.x}%`; pin.style.top = `${note.y}%`;
+    return pin;
+  }));
+  pinList.replaceChildren(...notes.map((note, i) => {
+    const row = document.createElement('li');
+    const num = document.createElement('span'); num.className = 'num'; num.textContent = i + 1;
+    const input = document.createElement('input');
+    input.value = note.text; input.maxLength = 80; input.placeholder = 'Что здесь? Например: ручная заплатка боро';
+    input.setAttribute('aria-label', `Подпись точки ${i + 1}`);
+    input.addEventListener('input', () => { note.text = input.value; });
+    const del = button('Убрать', () => { notes.splice(i, 1); renderNotes(); });
+    row.append(num, input, del);
+    return row;
+  }));
+}
+
+preview.addEventListener('click', event => {
+  if (notes.length >= 8) return say('Не больше 8 точек.', true);
+  const box = preview.getBoundingClientRect();
+  notes.push({ x: Math.round((event.clientX - box.left) / box.width * 1000) / 10, y: Math.round((event.clientY - box.top) / box.height * 1000) / 10, text: '' });
+  renderNotes();
+  pinList.querySelector('li:last-child input')?.focus();
 });
 
 $('add').addEventListener('click', () => openEditor(null));

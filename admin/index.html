@@ -39,6 +39,7 @@
         <label>Название<input name="title" required maxlength="100"></label>
         <label>Цена, ₽<input name="price" type="number" inputmode="numeric" min="1" step="1" required></label>
         <label>Описание<textarea name="description" rows="4" maxlength="1000"></textarea></label>
+        <label>Бренд<input name="brand" maxlength="60" placeholder="Ralph Lauren"></label>
         <div class="pair">
           <label>Эпоха<input name="era" maxlength="40" placeholder="1990-е"></label>
           <label>Происхождение<input name="origin" maxlength="60" placeholder="Япония"></label>
@@ -46,7 +47,9 @@
         <label>Состояние<input name="condition" maxlength="60" placeholder="Отличное"></label>
         <label>Замеры, см<input name="measures" maxlength="200" placeholder="Плечи 52 · Рукав 62 · Длина 70"></label>
         <label>Фото<input name="photo" type="file" accept="image/*"></label>
-        <img class="preview" id="preview" alt="Предпросмотр фото" hidden>
+        <div class="stage" id="stage" hidden><img class="preview" id="preview" alt="Предпросмотр фото"><span id="stage-pins"></span></div>
+        <p class="fine" id="pin-hint" hidden>Нажмите на фото, чтобы поставить точку: деталь, особенность или дефект. Подпишите каждую (до 8). На сайте точки откроются по нажатию.</p>
+        <ol class="pin-list" id="pin-list"></ol>
         <div class="row">
           <button class="btn" type="submit" id="save">Сохранить</button>
           <button class="btn ghost" type="button" id="cancel">Отмена</button>

@@ -180,14 +180,17 @@ function productView(product) {
   return () => {
     const inCart = cart.some(item => item.id === product.id);
     const description = !product.description ? '' : `<p class="sheet-desc">${escapeHtml(product.description)}</p>`;
-    const rows = [['Эпоха', product.era], ['Происхождение', product.origin], ['Состояние', product.condition], ['Замеры, см', product.measures]].filter(([, value]) => value);
-    const passport = rows.length ? `<dl class="passport">${rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>` : '';
+    const rows = [['Бренд', product.brand], ['Эпоха', product.era], ['Происхождение', product.origin], ['Состояние', product.condition], ['Замеры, см', product.measures]].filter(([, value]) => value);
+    const passport = rows.length ? `<h3 class="block-title">Паспорт вещи</h3><dl class="passport">${rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>` : '';
+    const notes = Array.isArray(product.notes) ? product.notes : [];
+    const pins = notes.map((note, i) => `<button class="pin" type="button" data-note="${i}" style="left:${Number(note.x)}%;top:${Number(note.y)}%" aria-label="Деталь ${i + 1}: ${escapeHtml(note.text)}">${i + 1}</button>`).join('');
+    const noteList = notes.length ? `<h3 class="block-title">Детали на фото</h3><ol class="notes">${notes.map((note, i) => `<li><button class="note" type="button" data-note="${i}"><span>${i + 1}</span>${escapeHtml(note.text)}</button></li>`).join('')}</ol>` : '';
     let action;
     if (product.sold) action = '<button class="primary" type="button" aria-disabled="true" disabled><span>Ушло к новому владельцу</span></button>';
     else if (inCart) action = '<button class="primary" id="open-cart" type="button"><span>Уже в корзине</span><span>Открыть →</span></button>';
     else action = `<button class="primary" id="add" type="button"><span>Добавить в корзину</span><span>${currency(product.price)}</span></button>`;
     sheetBody.dataset.product = product.id;
-    sheetBody.innerHTML = `<div class="sheet-image">${imageMarkup(product)}</div><h2 id="sheet-title">${escapeHtml(product.title)}</h2>${product.sold ? '' : `<p class="sheet-price">${currency(product.price)}</p>`}${description}${passport}${action}`;
+    sheetBody.innerHTML = `<div class="sheet-image">${imageMarkup(product)}${pins}</div><h2 id="sheet-title">${escapeHtml(product.title)}</h2>${product.sold ? '' : `<p class="sheet-price">${currency(product.price)}</p>`}${description}${passport}${noteList}${action}`;
   };
 }
 
@@ -195,12 +198,13 @@ function cartView() {
   cart = cart.filter(item => byId(item.id) && !byId(item.id).sold);
   const lines = cart.map(item => {
     const product = byId(item.id);
-    return `<div class="cart-line"><div><h3>${escapeHtml(product.title)}</h3><button class="remove" type="button" data-remove="${escapeHtml(item.id)}">Убрать</button></div><strong>${currency(product.price)}</strong></div>`;
+    const sub = [product.brand, product.era, product.condition].filter(Boolean).join(' · ');
+    return `<div class="cart-line"><div class="cart-thumb">${imageMarkup(product)}</div><div><h3>${escapeHtml(product.title)}</h3>${sub ? `<p class="cart-sub">${escapeHtml(sub)}</p>` : ''}<button class="remove" type="button" data-remove="${escapeHtml(item.id)}">Убрать</button></div><strong>${currency(product.price)}</strong></div>`;
   }).join('');
   const link = cart.length && sellerTelegram ? `https://t.me/${sellerTelegram}?text=${encodeURIComponent(buildMessage())}` : '#';
   const disabled = !cart.length || !sellerTelegram;
   sheetBody.dataset.product = '';
-  sheetBody.innerHTML = `<h2 id="sheet-title">Корзина</h2>${cart.length ? lines : '<p class="empty-cart">Пока пусто. Выберите вещь в каталоге.</p>'}<div class="total-row"><span>Итого</span><strong>${currency(cartTotal())}</strong></div><a class="primary" id="telegram-order" href="${link}" target="_blank" rel="noopener noreferrer" aria-disabled="${disabled}">Написать в Telegram</a><p class="hint">${sellerTelegram ? 'Откроется Telegram с готовым сообщением: список вещей и ссылки. Мы ничего о вас не собираем. Оплата на сайте не проводится.' : 'Telegram продавца пока не настроен.'}</p>`;
+  sheetBody.innerHTML = `<h2 id="sheet-title">Корзина</h2>${cart.length ? `<p class="cart-count">${cart.length} ${plural(cart.length, 'вещь', 'вещи', 'вещей')} · каждая в единственном экземпляре</p>` : ''}${cart.length ? lines : '<p class="empty-cart">Пока пусто. Выберите вещь в каталоге.</p>'}<div class="total-row"><span>Итого</span><strong>${currency(cartTotal())}</strong></div><a class="primary" id="telegram-order" href="${link}" target="_blank" rel="noopener noreferrer" aria-disabled="${disabled}">Написать в Telegram</a><p class="hint">${sellerTelegram ? 'Откроется Telegram с готовым сообщением: список вещей и ссылки. Мы ничего о вас не собираем. Оплата на сайте не проводится.' : 'Telegram продавца пока не настроен.'}</p>`;
 }
 
 function buildMessage() {
@@ -219,6 +223,13 @@ document.querySelector('main').addEventListener('click', event => {
 });
 
 sheetBody.addEventListener('click', event => {
+  const noteButton = event.target.closest('[data-note]');
+  if (noteButton) {
+    const was = noteButton.classList.contains('on');
+    sheetBody.querySelectorAll('[data-note]').forEach(el => el.classList.remove('on'));
+    if (!was) sheetBody.querySelectorAll(`[data-note="${noteButton.dataset.note}"]`).forEach(el => el.classList.add('on'));
+    return;
+  }
   if (event.target.closest('#add')) {
     const id = sheetBody.dataset.product;
     if (!cart.some(item => item.id === id)) cart.push({ id });
