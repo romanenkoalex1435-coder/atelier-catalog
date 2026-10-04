@@ -1,24 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseProductFields, buildOrder } from '../lib/catalog.js';
+import { assertId, decodeImage, validateProduct } from '../lib/catalog.js';
 
-const products = [{ id: 'jacket-1', title: 'Куртка', price: 4900, sizes: ['S', 'M'], category: 'Верхняя одежда', active: true }];
-
-test('product fields require a valid title, price and sizes', () => {
-  assert.deepEqual(parseProductFields('Куртка | 4900 | Верхняя одежда | S, M | Хорошее состояние'), {
-    title: 'Куртка', price: 4900, category: 'Верхняя одежда', sizes: ['S', 'M'], description: 'Хорошее состояние'
-  });
-  assert.throws(() => parseProductFields('Куртка | free | Верхняя одежда | S | Текст'));
+test('product fields require a valid title and price', () => {
+  assert.deepEqual(validateProduct({ title: ' Куртка ', price: '4900', description: 'Ок' }), { title: 'Куртка', price: 4900, description: 'Ок', era: '', origin: '', condition: '', measures: '' });
+  assert.equal(validateProduct({ title: 'Куртка', price: 1, era: ' 1990-е ' }).era, '1990-е');
+  assert.throws(() => validateProduct({ title: 'Куртка', price: 1, era: 'x'.repeat(41) }));
+  assert.throws(() => validateProduct({ title: 'Куртка', price: 0 }));
+  assert.throws(() => validateProduct({ title: '', price: 100 }));
 });
 
-test('order uses catalog prices and rejects unavailable sizes', () => {
-  const order = buildOrder({ customer: '@buyer', items: [{ id: 'jacket-1', size: 'M', quantity: 2 }] }, products);
-  assert.equal(order.total, 9800);
-  assert.equal(order.items[0].title, 'Куртка');
-  assert.throws(() => buildOrder({ customer: '@buyer', items: [{ id: 'jacket-1', size: 'XL', quantity: 1 }] }, products));
-});
-
-test('order rejects unknown products and excessive quantities', () => {
-  assert.throws(() => buildOrder({ customer: '@buyer', items: [{ id: 'missing', size: 'M', quantity: 1 }] }, products));
-  assert.throws(() => buildOrder({ customer: '@buyer', items: [{ id: 'jacket-1', size: 'M', quantity: 99 }] }, products));
+test('images must be real JPEGs and ids must be safe', () => {
+  assert.throws(() => decodeImage('data:image/png;base64,AAAA'));
+  assert.throws(() => decodeImage('data:image/jpeg;base64,AAAA'));
+  assert.equal(decodeImage('data:image/jpeg;base64,' + Buffer.from([0xff, 0xd8, 1]).toString('base64')).length, 3);
+  assert.throws(() => assertId('../secret'));
+  assert.equal(assertId('p-abc1'), 'p-abc1');
 });

@@ -3,30 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f3eee4">
-  <meta name="description" content="REWEAR VINTAGE — винтажная одежда. Выберите вещи и напишите продавцу в Telegram.">
+  <meta name="theme-color" content="#e9e2d3">
+  <meta name="description" content="REWEAR VINTAGE — винтажная одежда в единственном экземпляре. Выберите вещь и напишите продавцу в Telegram.">
   <title>REWEAR VINTAGE — винтажная одежда</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif&display=swap">
   <link rel="stylesheet" href="/styles.css">
   <script src="/app.js" type="module"></script>
-  <script src="/paper.js" type="module"></script>
 </head>
 <body>
-  <canvas class="paper" id="paper" aria-hidden="true"></canvas>
   <header class="site-header" id="top">
-    <a class="brand" href="#top" aria-label="REWEAR VINTAGE — наверх">REWEAR</a>
+    <a class="brand" href="/" aria-label="REWEAR VINTAGE — наверх"><span class="serif">RE</span>WEAR</a>
+    <nav class="header-nav" aria-label="Разделы"><a href="#catalog">Каталог</a><a href="#archive" id="archive-link" hidden>Архив</a></nav>
     <button class="cart-toggle" id="cart-toggle" type="button" aria-label="Открыть корзину">Корзина<span id="cart-count" hidden>0</span></button>
   </header>
 
   <main>
     <section class="masthead" aria-labelledby="page-title">
-      <h1 id="page-title">REWEAR VINTAGE</h1>
-      <p class="masthead-line">Винтажная одежда в единственном экземпляре. Выбираете вещь, пишете продавцу в Telegram.</p>
+      <h1 id="page-title" aria-label="REWEAR VINTAGE"><span data-w class="serif">RE</span><span data-w>WEAR</span></h1>
+      <div class="masthead-row">
+        <p class="masthead-line">Винтаж в единственном экземпляре. Выбираете вещь, пишете продавцу в Telegram.</p>
+        <p class="index">Vintage · 1 of 1</p>
+      </div>
     </section>
+
     <section class="catalog" id="catalog" aria-label="Каталог">
+      <div class="section-bar"><span>(01) → Каталог</span><span id="catalog-count"></span></div>
       <div class="product-grid" id="product-grid" aria-live="polite"><p class="loading">Загружаем каталог…</p></div>
+    </section>
+
+    <section class="catalog" id="archive" aria-label="Архив проданного" hidden>
+      <div class="section-bar"><span>(02) → Архив</span><span id="archive-count"></span></div>
+      <div class="product-grid" id="archive-grid"></div>
     </section>
   </main>
 
