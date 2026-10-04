@@ -1,22 +1,23 @@
-/* REWEAR VINTAGE: dark espresso, hairline grid, square forms. See DESIGN_SYSTEM.md */
+/* REWEAR VINTAGE: warm milk one tone darker, hairline grid, square forms. See DESIGN_SYSTEM.md */
 :root {
-  --paper: #231c17;
-  --surface: #231c17;
-  --tile: #30271f;
-  --ink: #efe6d4;
-  --on-ink: #231c17;
-  --accent: #d96a47;
-  --steel: #a99d89;
-  --shade: 239, 230, 212;
-  --line: rgba(var(--shade), .2);
-  --material: rgba(35, 28, 23, .92);
-  --scrim: 0, 0, 0;
+  --paper: #ddd4c0;
+  --surface: #ddd4c0;
+  --tile: #cdc4ae;
+  --ink: #1a1814;
+  --on-ink: #eee7d6;
+  --accent: #7a2e2a;
+  --steel: #4f483c;
+  --shade: 26, 24, 20;
+  --line: rgba(var(--shade), .22);
+  --material: rgba(221, 212, 192, .92);
+  --scrim: 26, 24, 20;
   --r-s: 0;
   --r-m: 0;
   --r-l: 0;
   --gutter: 16px;
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
   --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --serif: 'Instrument Serif', 'Times New Roman', Georgia, serif;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -26,11 +27,13 @@ a { color: inherit; text-underline-offset: 3px; }
 button { font: inherit; color: inherit; cursor: pointer; }
 h1, h2, h3, p, ol { margin: 0; }
 [hidden] { display: none !important; }
+.serif { font-family: var(--serif); font-weight: 400; letter-spacing: 0; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 /* header: three hairline cells, brand | sections | cart */
 .site-header { position: sticky; top: 0; z-index: 20; display: grid; grid-template-columns: auto 1fr auto; align-items: stretch; height: calc(52px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); background: var(--material); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); border-bottom: 1px solid var(--line); }
-.brand { display: flex; align-items: center; padding: 0 var(--gutter); border-right: 1px solid var(--line); font: 600 14px/1 var(--font-display); letter-spacing: .24em; text-decoration: none; }
+.brand { display: flex; align-items: center; padding: 0 var(--gutter); border-right: 1px solid var(--line); font: 600 15px/1 var(--font-display); letter-spacing: .08em; text-decoration: none; }
+.brand .serif { font-size: 22px; letter-spacing: .02em; margin-right: 1px; }
 .header-nav { display: flex; align-items: center; gap: 20px; padding: 0 var(--gutter); font-size: 13px; }
 .header-nav a { text-decoration: none; color: var(--steel); transition: color .15s; }
 .header-nav a:hover { color: var(--ink); }
@@ -41,10 +44,11 @@ h1, h2, h3, p, ol { margin: 0; }
 
 /* masthead: big wordmark, serif RE against grotesk WEAR */
 .masthead-hero { position: relative; display: flex; align-items: flex-end; min-height: clamp(150px, 30vw, 400px); padding: 28px var(--gutter) 22px; }
-.masthead h1 { font: 600 clamp(34px, 13.4vw, 220px)/1 var(--font-display); letter-spacing: .2em; margin-right: -.2em; white-space: nowrap; }
+.masthead h1 { display: flex; font: 600 clamp(48px, 18.5vw, 300px)/.86 var(--font-display); letter-spacing: -.045em; margin-left: -.03em; }
+.masthead h1 .serif { font-size: 1.12em; letter-spacing: -.02em; line-height: .78; }
 /* optional rug backdrop: appears when /images/hero.webp exists */
-.masthead-hero.has-hero { color: var(--ink); background: #6b2a1c url(/images/hero.webp) center / cover; }
-.masthead-hero.has-hero::before { content: ''; position: absolute; inset: 0; background: rgba(20, 14, 10, .5); }
+.masthead-hero.has-hero { color: #f1e9d8; background: #6b2a1c url(/images/hero.webp) center / cover; }
+.masthead-hero.has-hero::before { content: ''; position: absolute; inset: 0; background: rgba(26, 24, 20, .34); }
 .masthead-hero h1 { position: relative; }
 .masthead-row { margin-left: var(--gutter); margin-right: var(--gutter); }
 .masthead h1 .word { display: inline-block; white-space: nowrap; overflow: hidden; vertical-align: top; padding: .06em .02em .12em; margin: -.06em -.02em -.12em; }
@@ -120,9 +124,9 @@ h1, h2, h3, p, ol { margin: 0; }
 .note span { display: inline-grid; place-items: center; width: 20px; height: 20px; border: 1px solid var(--steel); border-radius: 50%; font-size: 11px; color: var(--steel); }
 .note.on, .note:hover { color: var(--accent); }
 .note.on span { background: var(--accent); border-color: var(--accent); color: var(--on-ink); }
-.pin { position: absolute; width: 24px; height: 24px; transform: translate(-50%, -50%); display: grid; place-items: center; padding: 0; border: 1px solid var(--ink); border-radius: 50%; background: rgba(35, 28, 23, .82); color: var(--ink); font-size: 11px; font-weight: 600; transition: background-color .15s, color .15s; }
+.pin { position: absolute; width: 24px; height: 24px; transform: translate(-50%, -50%); display: grid; place-items: center; padding: 0; border: 1px solid #f1e9d8; border-radius: 50%; background: rgba(26, 24, 20, .78); color: #f1e9d8; font-size: 11px; font-weight: 600; transition: background-color .15s, color .15s; }
 .pin::before { content: ''; position: absolute; inset: -10px; }
-.pin::after { content: ''; position: absolute; inset: -1px; border: 1px solid var(--ink); border-radius: 50%; animation: ping 1.8s ease-out 2; pointer-events: none; }
+.pin::after { content: ''; position: absolute; inset: -1px; border: 1px solid #f1e9d8; border-radius: 50%; animation: ping 1.8s ease-out 2; pointer-events: none; }
 @keyframes ping { from { transform: scale(1); opacity: .8; } to { transform: scale(2.1); opacity: 0; } }
 .pin.on { background: var(--accent); border-color: var(--accent); color: var(--on-ink); }
 .fly .pin { display: none; }
@@ -147,6 +151,7 @@ h1, h2, h3, p, ol { margin: 0; }
 
 @media (min-width: 720px) {
   :root { --gutter: 32px; }
+  .masthead h1 { font-size: 20.5vw; }
     .product-grid { grid-template-columns: repeat(3, 1fr); }
   .steps { grid-template-columns: repeat(3, 1fr); }
   .steps li { border-bottom: 0; border-right: 1px solid var(--line); }
@@ -165,7 +170,7 @@ h1, h2, h3, p, ol { margin: 0; }
   .sheet { transition: opacity .2s; }
 }
 @media (prefers-reduced-transparency: reduce) {
-  :root { --material: #231c17; }
+  :root { --material: #ddd4c0; }
   .site-header, .sheet { -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
-@media (prefers-contrast: more) { :root { --line: rgba(var(--shade), .55); --steel: #cfc4b0; } }
+@media (prefers-contrast: more) { :root { --line: rgba(var(--shade), .55); --steel: #3a352b; } }
