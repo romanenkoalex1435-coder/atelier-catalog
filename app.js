@@ -477,3 +477,22 @@ async function init() {
   }
 }
 init();
+
+/* ---------- hero: sunlight gliding over the rug (phones for now) ---------- */
+(() => {
+  const video = document.querySelector('#hero-video');
+  if (!video) return;
+  const phone = matchMedia('(max-width: 719px)');
+  const calm = matchMedia('(prefers-reduced-motion: reduce)');
+  const lean = navigator.connection?.saveData;
+  if (!phone.matches || calm.matches || lean) return;
+  video.poster = '/images/hero-mobile-poster.webp';
+  video.src = '/video/hero-mobile.mp4';
+  video.hidden = false;
+  // play only while the hero is on screen, and never fail loudly if the browser blocks autoplay (the poster stays)
+  const io = new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting) video.play().catch(() => {});
+    else video.pause();
+  }, { threshold: .15 });
+  io.observe(video);
+})();
