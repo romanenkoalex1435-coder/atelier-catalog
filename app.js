@@ -1,7 +1,7 @@
 /* open on the hero: the browser must not restore an old scroll position (the catalog loads after the page and would push it down) */
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 // section links must not leave "#catalog" in the address bar, otherwise the next visit opens the catalog instead of the hero
-const SECTIONS = ['#catalog', '#archive', '#about'];
+const SECTIONS = ['#catalog'];
 const cleanUrl = () => history.replaceState(null, '', location.pathname + location.search);
 if (SECTIONS.includes(location.hash)) cleanUrl();
 scrollTo(0, 0);
@@ -13,6 +13,7 @@ document.addEventListener('click', event => {
   target.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 });
 
+const PAGE = document.body.dataset.page || 'home';
 const grid = document.querySelector('#product-grid');
 const archiveGrid = document.querySelector('#archive-grid');
 const grids = [grid, archiveGrid];
@@ -120,7 +121,7 @@ function closeSheet(velocity = 0) {
   if (!sheetOpen) return;
   sheetOpen = false;
   document.body.style.overflow = '';
-  const finish = () => { sheet.hidden = true; scrim.hidden = true; sheet.setAttribute('aria-hidden', 'true'); if (new URL(location).searchParams.has('product')) history.replaceState(null, '', location.pathname); previousFocus?.focus?.({ preventScroll: true }); };
+  const finish = () => { onSheetClosed(); sheet.hidden = true; scrim.hidden = true; sheet.setAttribute('aria-hidden', 'true'); if (new URL(location).searchParams.has('product')) history.replaceState(null, '', location.pathname); previousFocus?.focus?.({ preventScroll: true }); };
   if (reduceMotion.matches) { sheet.style.opacity = '0'; setTimeout(finish, 200); return; }
   settle(sheetSize(), velocity, 1, finish);
 }
@@ -213,6 +214,7 @@ function visibleProducts() {
 // Only groups that can actually narrow the list (2+ different values) are shown, so four items get a one-line toolbar.
 function renderToolbar() {
   const toolbar = document.querySelector('#toolbar');
+  if (!toolbar) return;
   const live = products.filter(product => !product.sold);
   toolbar.hidden = live.length < 2;
   if (toolbar.hidden) return;
@@ -229,13 +231,17 @@ function renderToolbar() {
 }
 
 function renderProducts() {
-  const sold = products.filter(product => product.sold), live = visibleProducts();
-  const total = products.filter(product => !product.sold).length;
+  const sold = products.filter(product => product.sold);
+  const archiveLink = document.querySelector('#footer-archive');
+  if (PAGE === 'sold') {
+    archiveGrid.innerHTML = sold.length ? sold.map(tileMarkup).join('') : '<p class="empty">Пока ничего не продано.</p>';
+    document.querySelector('#archive-count').textContent = sold.length ? `${sold.length} ${plural(sold.length, 'вещь', 'вещи', 'вещей')}` : '';
+    return;
+  }
+  const live = visibleProducts(), total = products.filter(product => !product.sold).length;
   grid.innerHTML = live.length ? live.map(tileMarkup).join('') : total ? '<p class="empty">Ничего не нашлось. <button class="textlink" type="button" id="reset-filters">Сбросить фильтры</button></p>' : '<p class="empty">Пока ничего нет. Загляните позже.</p>';
-  archiveGrid.innerHTML = sold.map(tileMarkup).join('');
-  document.querySelector('#archive').hidden = document.querySelector('#footer-archive').hidden = !sold.length;
+  if (archiveLink) archiveLink.hidden = !sold.length;
   document.querySelector('#catalog-count').textContent = total ? `${live.length === total ? '' : `${live.length} из `}${total} ${plural(total, 'вещь', 'вещи', 'вещей')}` : '';
-  document.querySelector('#archive-count').textContent = sold.length ? `${sold.length} ${plural(sold.length, 'вещь', 'вещи', 'вещей')}` : '';
 }
 
 function plural(n, one, few, many) {
@@ -417,7 +423,7 @@ sheetBody.addEventListener('click', event => {
   }
   if (event.target.closest('#open-cart')) { openSheet(cartView); return; }
   if (event.target.closest('#keep-looking')) { closeSheet(); return; }
-  if (event.target.closest('#to-catalog')) { closeSheet(); document.querySelector('#catalog').scrollIntoView({ behavior: reduceMotion.matches ? 'auto' : 'smooth' }); return; }
+  if (event.target.closest('#to-catalog')) { closeSheet(); const catalog = document.querySelector('#catalog'); if (catalog) catalog.scrollIntoView({ behavior: reduceMotion.matches ? 'auto' : 'smooth' }); else location.href = '/'; return; }
   const remove = event.target.closest('[data-remove]');
   if (remove) {
     cart = cart.filter(item => item.id !== remove.dataset.remove);
@@ -451,9 +457,83 @@ document.addEventListener('click', event => {
   const go = event.target.closest('[data-go]');
   if (!go) return;
   if (go.dataset.go === 'faq') { event.preventDefault(); openSheet(faqView); }
+  if (go.dataset.go === 'cookies') { event.preventDefault(); openCookieSettings(); }
 });
 
 document.querySelector('#cart-btn').addEventListener('click', () => openSheet(cartView));
+
+/* ---------- cookies and analytics consent ---------- */
+// Choice lives in localStorage ({ analytics, at }). Yandex Metrica loads only after "Принять" and only if a counter id is set in config.json.
+const CONSENT_KEY = 'rewear-consent';
+const consentBox = document.querySelector('#consent');
+let metrikaId = '', metrikaLoaded = false, consentPending = false;
+
+function readConsent() {
+  try { const value = JSON.parse(localStorage.getItem(CONSENT_KEY) || 'null'); return value && typeof value.analytics === 'boolean' ? value : null; } catch { return null; }
+}
+
+function loadMetrika() {
+  if (metrikaLoaded || !metrikaId) return;
+  metrikaLoaded = true;
+  window.ym = window.ym || function () { (window.ym.a = window.ym.a || []).push(arguments); };
+  window.ym.l = Date.now();
+  const script = document.createElement('script');
+  script.async = true; script.src = 'https://mc.yandex.ru/metrika/tag.js';
+  document.head.append(script);
+  window.ym(Number(metrikaId), 'init', { clickmap: true, trackLinks: true, accurateTrackBounce: true });
+}
+
+function saveConsent(analytics) {
+  const wasOn = readConsent()?.analytics;
+  try { localStorage.setItem(CONSENT_KEY, JSON.stringify({ analytics, at: new Date().toISOString() })); } catch {}
+  consentBox.hidden = true;
+  consentPending = false;
+  if (analytics) loadMetrika();
+  // an already running counter cannot be unloaded from the page; a reload starts the site without it
+  else if (wasOn && metrikaLoaded) location.reload();
+}
+
+function cookieView() {
+  return () => {
+    sheet.classList.add('narrow');
+    sheetBody.className = 'sheet-body';
+    sheetBody.dataset.product = '';
+    const analyticsOn = readConsent()?.analytics ?? false;
+    sheetBody.innerHTML = `<h2 id="sheet-title">Cookie и аналитика</h2>
+      <div class="cookie-option"><h3>Необходимые</h3><button class="switch" type="button" role="switch" aria-checked="true" disabled aria-label="Необходимые: всегда включены"></button><p>Нужны, чтобы сайт работал: хранят содержимое корзины и ваш выбор в этом окне. Хранятся только в вашем браузере, на сервер не передаются. Отключить нельзя.</p></div>
+      <div class="cookie-option"><h3>Аналитика</h3><button class="switch" type="button" role="switch" id="analytics-switch" aria-checked="${analyticsOn}" aria-label="Аналитика"></button><p>Яндекс Метрика: обезличенная статистика посещений — какие страницы и вещи открывают, с каких устройств. Помогает нам понять, что интересно покупателям. Данные обрабатывает ООО «Яндекс». Без вашего согласия счётчик не загружается.${metrikaId ? '' : ' Сейчас аналитика на сайте ещё не подключена: выбор сохранится на будущее.'}</p></div>
+      <p class="cookie-note">Выбор можно изменить в любой момент: ссылка «Cookie» внизу сайта.</p>
+      <div class="buy"><button class="primary wide" type="button" id="cookie-save">Сохранить выбор</button><div class="consent-actions"><button class="consent-btn" type="button" data-consent="decline">Отказаться</button><button class="consent-btn" type="button" data-consent="accept">Принять все</button></div></div>`;
+  };
+}
+
+function openCookieSettings() {
+  consentBox.hidden = true;
+  openSheet(cookieView());
+}
+
+function onSheetClosed() {
+  if (consentPending && !readConsent()) consentBox.hidden = false;
+}
+
+function setupConsent(config) {
+  metrikaId = /^\d{5,12}$/.test(String(config.yandexMetrika || '')) ? String(config.yandexMetrika) : '';
+  const choice = readConsent();
+  if (choice?.analytics) loadMetrika();
+  consentPending = !choice;
+  consentBox.hidden = Boolean(choice);
+}
+
+document.addEventListener('click', event => {
+  const action = event.target.closest('[data-consent]')?.dataset.consent;
+  const toggle = event.target.closest('#analytics-switch');
+  if (toggle) { toggle.setAttribute('aria-checked', String(toggle.getAttribute('aria-checked') !== 'true')); return; }
+  if (event.target.closest('#cookie-save')) { saveConsent(sheetBody.querySelector('#analytics-switch')?.getAttribute('aria-checked') === 'true'); closeSheet(); return; }
+  if (!action) return;
+  if (action === 'details') { openCookieSettings(); return; }
+  saveConsent(action === 'accept');
+  if (sheetOpen && sheetBody.querySelector('#analytics-switch')) closeSheet();
+});
 
 async function init() {
   try {
@@ -463,15 +543,11 @@ async function init() {
     if (!response.ok) throw new Error('Каталог недоступен.');
     products = (await response.json()).filter(product => product.active);
     renderToolbar(); renderProducts(); updateCount();
-    const about = config.about || {};
-    const facts = [['Город', about.city], ['Доставка', about.delivery], ['Возврат', about.returns]].filter(([, value]) => value);
-    const factsEl = document.querySelector('#about-facts');
-    factsEl.hidden = !facts.length;
-    factsEl.innerHTML = facts.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('');
-    const channel = /^[A-Za-z0-9_]{5,32}$/.test(about.channel || '') ? about.channel : '';
+    const channel = /^[A-Za-z0-9_]{5,32}$/.test(config.telegramChannel || '') ? config.telegramChannel : '';
     const channelLink = document.querySelector('#footer-channel');
     channelLink.hidden = !channel;
     if (channel) channelLink.href = `https://t.me/${channel}`;
+    setupConsent(config);
     document.querySelectorAll('[data-telegram]').forEach(link => { if (sellerTelegram) link.href = `https://t.me/${sellerTelegram}`; else link.hidden = true; });
     scrollTo(0, 0);
     const selected = byId(new URLSearchParams(location.search).get('product'));

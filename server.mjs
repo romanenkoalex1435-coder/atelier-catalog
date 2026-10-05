@@ -28,7 +28,7 @@ const types = {
 };
 
 // only these public paths are served; code, tests, secrets and git internals never are
-const PUBLIC = /^\/(index\.html|styles\.css|app\.js|config\.json|robots\.txt|favicon\.png|apple-touch-icon\.png|og\.jpg|admin\/[\w.-]+|fonts\/[\w.-]+|images\/(preview\/)?[\w.-]+|video\/[\w.-]+|models\/[\w.-]+|vendor\/ort\/[\w.-]+|data\/products\.json)$/;
+const PUBLIC = /^\/(index\.html|sold\/index\.html|styles\.css|app\.js|config\.json|robots\.txt|favicon\.png|apple-touch-icon\.png|og\.jpg|admin\/[\w.-]+|fonts\/[\w.-]+|images\/(preview\/)?[\w.-]+|video\/[\w.-]+|models\/[\w.-]+|vendor\/ort\/[\w.-]+|data\/products\.json)$/;
 const FROM_DATA = /^\/(images\/|data\/products\.json)/;
 
 function cacheFor(pathname) {
@@ -39,7 +39,7 @@ function cacheFor(pathname) {
 }
 
 async function serveFile(req, res, pathname) {
-  if (pathname === '/' || pathname === '/admin' || pathname === '/admin/') pathname = pathname.replace(/\/?$/, '/') + 'index.html';
+  if (['/', '/admin', '/admin/', '/sold', '/sold/'].includes(pathname)) pathname = pathname.replace(/\/?$/, '/') + 'index.html';
   if (!PUBLIC.test(pathname)) return notFound(res);
   const base = FROM_DATA.test(pathname) ? dataDir : here;
   const file = path.join(base, pathname);

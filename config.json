@@ -1,9 +1,5 @@
 {
   "sellerTelegram": "iamozwe",
-  "about": {
-    "city": "",
-    "delivery": "",
-    "returns": "",
-    "channel": ""
-  }
+  "telegramChannel": "",
+  "yandexMetrika": ""
 }
