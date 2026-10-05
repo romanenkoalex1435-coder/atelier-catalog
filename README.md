@@ -30,9 +30,24 @@
 
 Ссылки на вещи в сообщении заказа имеют вид `https://<сайт>/p/<id>`: функция `api/share.js` отдаёт Open Graph с фото и ценой и перекидывает человека в каталог. В `index.html` у `og:image` указан адрес `https://atelier-catalog.vercel.app/og.jpg`; при подключении своего домена замените его там.
 
+## Перенос на российский хостинг
+
+Vercel нужен как превью для заказчика. Для постоянного хостинга есть обычный Node-сервер: он отдаёт сайт и работает с админкой, а вещи и фото хранит на диске сервера (без GitHub).
+
+Нужен VPS с Node.js 20+ (Timeweb Cloud, Selectel, REG.RU, Beget VPS и т. п.) и домен.
+
+1. Скопируйте проект на сервер, например в `/opt/rewear`.
+2. Создайте папку данных и перенесите текущий каталог: `mkdir -p /var/rewear && cp -r data images /var/rewear/`.
+3. Создайте `/opt/rewear/.env` по образцу `.env.example`: `STORAGE=fs`, `DATA_DIR=/var/rewear`, `PORT=3000`, `PUBLIC_SITE_URL=https://ваш-домен`, логин и хеш пароля.
+4. Запустите как службу: `deploy/rewear.service` (systemd), перед ним nginx с HTTPS: `deploy/nginx.conf`. HTTPS обязателен: без него cookie входа в админку не работает.
+5. Замените адрес `atelier-catalog.vercel.app` на свой домен в `index.html` (`og:image`) и `robots.txt` (`Sitemap:`).
+6. Резервные копии: достаточно регулярно копировать папку `DATA_DIR` (каталог и фото).
+
+Проверка локально: `STORAGE=fs DATA_DIR=. PORT=3000 node server.mjs` и открыть `http://localhost:3000`. Сервер отдаёт только файлы сайта: код, тесты, `.env` и `.git` закрыты. Персональные данные покупателей сайт не собирает.
+
 ## Настройка
 
-- `config.json`: `sellerTelegram` — публичный username продавца без `@`.
+- `config.json`: `sellerTelegram` — публичный username продавца без `@`. Блок «О магазине»: `about.city`, `about.delivery`, `about.returns` (короткие строки, пустые не показываются) и `about.channel` — username Telegram-канала для ссылки в подвале.
 - `data/products.json`: каталог (меняется админкой). Демо-товары с пометкой «Пример» удалите в админке.
 
 ## Локальная проверка

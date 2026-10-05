@@ -1,3 +1,9 @@
 {
-  "sellerTelegram": "iamozwe"
+  "sellerTelegram": "iamozwe",
+  "about": {
+    "city": "",
+    "delivery": "",
+    "returns": "",
+    "channel": ""
+  }
 }
