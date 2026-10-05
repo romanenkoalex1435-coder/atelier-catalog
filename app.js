@@ -154,8 +154,9 @@ isDesktop.addEventListener('change', () => { if (sheetOpen) setPos(0); });
 /* ---------- catalog ---------- */
 const photosOf = product => (Array.isArray(product.images) && product.images.length ? product.images : product.image ? [product.image] : []).filter(src => /^\/images\/[a-z0-9.-]+$/.test(src));
 // A hand-made 4:5 preview (product.preview) wins in the grid; otherwise the whole original is shown with object-fit: contain.
-const previewOf = product => (/^\/images\/[a-z0-9.-]+$/.test(product.preview || '') ? product.preview : photosOf(product)[0]);
+const previewOf = product => (/^\/images\/[a-z0-9./-]+\.(webp|png|jpg)$/.test(product.preview || '') ? product.preview : photosOf(product)[0]);
 
+const hasCut = product => /^\/images\/[a-z0-9./-]+\.webp$/.test(product.preview || '');
 function imageMarkup(product) {
   const src = previewOf(product);
   return src ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(product.title)}" loading="lazy" decoding="async">` : `<span class="placeholder">${hanger}</span>`;
@@ -180,7 +181,7 @@ function tileMarkup(product) {
   const count = photosOf(product).length;
   const size = product.size ? `<p class="tile-size">Размер: ${escapeHtml(product.size)}</p>` : '';
   const cond = product.condition ? `<p class="tile-cond">${escapeHtml(product.condition)}</p>` : '';
-  return `<button class="tile" type="button" data-id="${escapeHtml(product.id)}"><div class="tile-image">${imageMarkup(product)}${status}${count > 1 ? `<span class="count" aria-label="Фото: ${count}">${count} фото</span>` : ''}</div><div class="tile-meta"><h3 class="tile-title">${escapeHtml(product.title)}</h3>${size}<p class="tile-price">${currency(product.price)}</p>${cond}</div></button>`;
+  return `<button class="tile" type="button" data-id="${escapeHtml(product.id)}"><div class="tile-image${hasCut(product) ? ' cut' : ''}">${imageMarkup(product)}${status}${count > 1 ? `<span class="count" aria-label="Фото: ${count}">${count} фото</span>` : ''}</div><div class="tile-meta"><h3 class="tile-title">${escapeHtml(product.title)}</h3>${size}<p class="tile-price">${currency(product.price)}</p>${cond}</div></button>`;
 }
 
 function visibleProducts() {
@@ -267,7 +268,7 @@ function cartView() {
   const lines = cart.map(item => {
     const product = byId(item.id);
     const sub = [product.size && `Размер: ${product.size}`, product.brand, product.condition].filter(Boolean).join(' · ');
-    return `<div class="cart-line"><div class="cart-thumb">${imageMarkup(product)}</div><div><h3>${escapeHtml(product.title)}</h3>${sub ? `<p class="cart-sub">${escapeHtml(sub)}</p>` : ''}<button class="remove" type="button" data-remove="${escapeHtml(item.id)}">Убрать</button></div><strong>${currency(product.price)}</strong></div>`;
+    return `<div class="cart-line"><div class="cart-thumb${hasCut(product) ? ' cut' : ''}">${imageMarkup(product)}</div><div><h3>${escapeHtml(product.title)}</h3>${sub ? `<p class="cart-sub">${escapeHtml(sub)}</p>` : ''}<button class="remove" type="button" data-remove="${escapeHtml(item.id)}">Убрать</button></div><strong>${currency(product.price)}</strong></div>`;
   }).join('');
   const link = sellerTelegram ? `https://t.me/${sellerTelegram}?text=${encodeURIComponent(buildMessage())}` : '#';
   sheetBody.innerHTML = `<h2 id="sheet-title">Корзина</h2><p class="cart-count">${cart.length} ${plural(cart.length, 'вещь', 'вещи', 'вещей')} · каждая в единственном экземпляре</p>${lines}<div class="total-row"><span>Итого</span><strong>${currency(cartTotal())}</strong></div><div class="buy"><a class="primary wide" id="telegram-order" href="${link}" target="_blank" rel="noopener noreferrer" aria-disabled="${String(!sellerTelegram)}">Оформить в Telegram</a><p class="hint">${sellerTelegram ? 'Откроется чат с готовым списком вещей. Оплату и доставку согласуем лично.' : 'Telegram продавца пока не настроен.'}</p></div>`;
