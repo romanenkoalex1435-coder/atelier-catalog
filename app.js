@@ -1,3 +1,7 @@
+/* open on the hero: the browser must not restore an old scroll position (the catalog loads after the page and would push it down) */
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+if (!location.hash) scrollTo(0, 0);
+
 const grid = document.querySelector('#product-grid');
 const archiveGrid = document.querySelector('#archive-grid');
 const grids = [grid, archiveGrid];
@@ -409,6 +413,7 @@ async function init() {
     renderToolbar(); renderProducts(); updateCount();
     document.querySelectorAll('[data-telegram]').forEach(link => { if (sellerTelegram) link.href = `https://t.me/${sellerTelegram}`; else link.hidden = true; });
     document.querySelector('#demo-note').hidden = !products.some(product => product.id.startsWith('demo-'));
+    if (!location.hash) scrollTo(0, 0);
     const selected = byId(new URLSearchParams(location.search).get('product'));
     if (selected) openSheet(productView(selected));
   } catch (error) {
