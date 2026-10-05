@@ -55,13 +55,24 @@
           <ol class="photo-strip" id="photo-strip"></ol>
           <label class="btn ghost file">Добавить фото<input type="file" id="photo-input" accept="image/*" multiple hidden></label>
         </fieldset>
-        <fieldset class="photos">
-          <legend>Превью для каталога без фона (необязательно)</legend>
-          <div class="cutrow">
-            <div class="cutthumb" id="cut-thumb" hidden><img id="cut-img" alt="Превью без фона"></div>
-            <div class="row"><label class="btn ghost file" id="cut-add">Загрузить PNG или WebP<input type="file" id="cut-input" accept="image/png,image/webp" hidden></label><button class="btn ghost danger" type="button" id="cut-remove" hidden>Убрать превью</button></div>
+        <fieldset class="photos" id="cut-box">
+          <legend>Превью для каталога: вещь без ковра</legend>
+          <label class="check"><input type="checkbox" id="cut-auto" checked> Вырезать автоматически, когда добавлено первое фото</label>
+          <div class="cut-compare" id="cut-compare" hidden>
+            <figure><div class="cut-pane"><img id="cut-orig" alt="Оригинал"></div><figcaption>Оригинал</figcaption></figure>
+            <figure><div class="cut-pane plate"><img id="cut-img" alt="Превью без фона"></div><figcaption id="cut-caption">Так вещь будет в каталоге</figcaption></figure>
           </div>
-          <p class="fine">Вещь без ковра на прозрачном фоне. Без превью в каталоге показывается фото на ковре целиком. В карточке вещи превью идёт первым кадром.</p>
+          <label>Тип вещи (от него зависит масштаб в кадре)<select id="cut-kind"><option value="top">Рубашка, куртка, футболка</option><option value="bottom">Брюки, джинсы</option><option value="accessory">Обувь, аксессуар</option></select></label>
+          <p class="fine" id="cut-status" role="status" hidden></p>
+          <ul class="cut-problems" id="cut-problems" hidden></ul>
+          <div class="row">
+            <button class="btn" type="button" id="cut-run">Вырезать автоматически</button>
+            <button class="btn" type="button" id="cut-accept" hidden>Использовать это превью</button>
+            <button class="btn ghost" type="button" id="cut-reject" hidden>Оставить фото на ковре</button>
+            <label class="btn ghost file" id="cut-add">Загрузить своё превью<input type="file" id="cut-input" accept="image/png,image/webp" hidden></label>
+            <button class="btn ghost danger" type="button" id="cut-remove" hidden>Убрать превью</button>
+          </div>
+          <p class="fine">Вырезка идёт прямо в вашем браузере, фото никуда не отправляются. Первый раз скачивается модель (≈45 МБ), потом она берётся из памяти браузера. Всегда сравните результат с оригиналом: если потерялась деталь или остался кусок ковра, выберите «Оставить фото на ковре» или загрузите своё превью.</p>
         </fieldset>
         <div id="pin-section" hidden>
           <p class="fine">Нажмите на фото, чтобы отметить <b>дефект</b> (пятно, потёртость, дыру). Подпишите каждый. На сайте они показываются по кнопке «Показать дефекты» на фото на ковре.</p>

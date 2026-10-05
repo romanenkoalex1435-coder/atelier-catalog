@@ -54,6 +54,12 @@
 .pin-list .num { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--steel); border-radius: 50%; font-size: 11px; color: var(--steel); }
 .pin-list .num.flaw { background: var(--accent); border-color: var(--accent); color: var(--on-ink); }
 .pin-list .btn { height: 36px; padding: 0 12px; }
-.cutrow { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.cutthumb { width: 96px; aspect-ratio: 4 / 5; background: var(--plate); }
-.cutthumb img { width: 100%; height: 100%; object-fit: contain; display: block; padding: 6%; box-sizing: border-box; }
+.check { display: flex !important; grid-template-columns: none; align-items: center; gap: 10px; color: var(--ink) !important; font-size: 15px !important; }
+.check input { width: auto; }
+.cut-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cut-compare figure { margin: 0; display: grid; gap: 6px; }
+.cut-compare figcaption { font-size: 13px; color: var(--steel); }
+.cut-pane { aspect-ratio: 4 / 5; background: var(--plate); display: grid; place-items: center; overflow: hidden; }
+.cut-pane img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.cut-pane.plate img { width: 100%; height: 100%; padding: 7%; box-sizing: border-box; }
+.cut-problems { margin: 0; padding: 10px 12px 10px 28px; color: var(--accent); border: 1px solid var(--accent); font-size: 14px; }
