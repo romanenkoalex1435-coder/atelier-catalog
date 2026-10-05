@@ -45,7 +45,7 @@ h1, h2, h3, p, ol, dl, dd, figure { margin: 0; }
 .cart-toggle span { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; background: var(--accent); color: var(--on-ink); border-radius: 11px; font-size: 13px; font-weight: 600; }
 
 /* hero: the rug fills the first screen, the catalog starts below */
-.hero { position: relative; display: grid; grid-template-rows: 1fr auto; min-height: calc(100vh - 56px); min-height: calc(100svh - 56px); background: #8c3a22; background-image: url(/images/hero-mobile.webp), url(/images/hero.webp); background-size: cover, cover; background-position: center, center; isolation: isolate; }
+.hero { position: relative; display: grid; grid-template-rows: 1fr auto; min-height: calc(100vh - 56px); min-height: calc(100svh - 56px); background: #8c3a22; background-image: url(/images/hero-mobile.webp); background-size: cover; background-position: center; isolation: isolate; }
 .hero::before { content: ''; position: absolute; inset: 0; z-index: -1; background: rgba(48, 40, 32, .22); }
 .hero-center { display: grid; place-items: center; padding: 24px var(--gutter); }
 .logo { font: 400 clamp(64px, 20vw, 96px)/1 var(--logo); letter-spacing: -.01em; text-align: center; color: #e3d5ae; -webkit-text-stroke: .045em var(--ink); paint-order: stroke fill; text-shadow: 0.0063em 0.0066em 0 #1a1814, 0.0125em 0.0131em 0 #1a1814, 0.0188em 0.0197em 0 #1a1814, 0.0250em 0.0263em 0 #1a1814, 0.0312em 0.0328em 0 #1a1814, 0.0375em 0.0394em 0 #1a1814, 0.0438em 0.0459em 0 #1a1814, 0.0500em 0.0525em 0 #1a1814, 0.0563em 0.0591em 0 #1a1814, 0.0625em 0.0656em 0 #1a1814, 0.0688em 0.0722em 0 #1a1814, 0.0750em 0.0788em 0 #1a1814, 0.0813em 0.0853em 0 #1a1814, 0.0875em 0.0919em 0 #1a1814, 0.0938em 0.0984em 0 #1a1814, 0.1000em 0.1050em 0 #1a1814; filter: url(#aged); }
@@ -209,6 +209,7 @@ h1, h2, h3, p, ol, dl, dd, figure { margin: 0; }
 }
 @media (min-width: 720px) {
   :root { --gutter: 40px; --gap: 24px; }
+  .hero { background-image: url(/images/hero.webp); }
   .logo { font-size: clamp(110px, 12vw, 200px); }
   .hero-plate { grid-template-columns: 1fr auto; align-items: center; gap: 32px; padding: 20px var(--gutter); }
   .hero-plate .cta { width: auto; }
