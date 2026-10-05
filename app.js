@@ -1,6 +1,17 @@
 /* open on the hero: the browser must not restore an old scroll position (the catalog loads after the page and would push it down) */
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-if (!location.hash) scrollTo(0, 0);
+// section links must not leave "#catalog" in the address bar, otherwise the next visit opens the catalog instead of the hero
+const SECTIONS = ['#catalog', '#archive'];
+const cleanUrl = () => history.replaceState(null, '', location.pathname + location.search);
+if (SECTIONS.includes(location.hash)) cleanUrl();
+scrollTo(0, 0);
+document.addEventListener('click', event => {
+  const link = event.target.closest('a[href^="#"]');
+  const target = link && SECTIONS.includes(link.getAttribute('href')) && document.querySelector(link.getAttribute('href'));
+  if (!target) return;
+  event.preventDefault();
+  target.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+});
 
 const grid = document.querySelector('#product-grid');
 const archiveGrid = document.querySelector('#archive-grid');
@@ -413,7 +424,7 @@ async function init() {
     renderToolbar(); renderProducts(); updateCount();
     document.querySelectorAll('[data-telegram]').forEach(link => { if (sellerTelegram) link.href = `https://t.me/${sellerTelegram}`; else link.hidden = true; });
     document.querySelector('#demo-note').hidden = !products.some(product => product.id.startsWith('demo-'));
-    if (!location.hash) scrollTo(0, 0);
+    scrollTo(0, 0);
     const selected = byId(new URLSearchParams(location.search).get('product'));
     if (selected) openSheet(productView(selected));
   } catch (error) {
