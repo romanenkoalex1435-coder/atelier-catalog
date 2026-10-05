@@ -53,6 +53,8 @@ function updateCount() {
   const changed = cartCount.textContent !== String(total);
   cartCount.textContent = total;
   cartCount.hidden = total === 0;
+  const menuCart = document.querySelector('#menu-cart-count');
+  if (menuCart) menuCart.textContent = total ? `${total} ${plural(total, 'вещь', 'вещи', 'вещей')}` : 'пока пусто';
   if (changed && total > 0 && !reduceMotion.matches) cartCount.animate([{ transform: 'scale(1.5)' }, { transform: 'scale(1)' }], { duration: 420, easing: 'cubic-bezier(.2, 1.8, .4, 1)' });
 }
 
@@ -177,6 +179,7 @@ function imageMarkup(product) {
   return src ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(product.title)}" loading="lazy" decoding="async">` : `<span class="placeholder">${hanger}</span>`;
 }
 
+const CATEGORIES = ['Верхняя одежда', 'Штаны', 'Обувь', 'Аксессуары'];
 const FILTER_GROUPS = [['category', 'Категория'], ['size', 'Размер'], ['brand', 'Бренд'], ['era', 'Эпоха']];
 const filters = { category: '', size: '', brand: '', era: '', sort: 'new' };
 let filtersOpen = false;
@@ -213,11 +216,13 @@ function renderToolbar() {
   toolbar.hidden = live.length < 2;
   if (toolbar.hidden) return;
   const groups = FILTER_GROUPS.map(([group, title]) => {
-    const values = [...new Set(live.map(product => valueOf(product, group)).filter(Boolean))].sort((a, b) => group === 'era' ? Number(a) - Number(b) : a.localeCompare(b, 'ru', { numeric: true }));
-    return { group, title, values };
-  }).filter(({ values }) => values.length > 1);
+    const present = new Set(live.map(product => valueOf(product, group)).filter(Boolean));
+    // the four clothing groups are always shown (empty ones are dimmed); other groups only when there is something to choose between
+    const values = group === 'category' ? CATEGORIES : [...present].sort((x, y) => group === 'era' ? Number(x) - Number(y) : x.localeCompare(y, 'ru', { numeric: true }));
+    return { group, title, values, present };
+  }).filter(({ group, values }) => group === 'category' || values.length > 1);
   const active = groups.filter(({ group }) => filters[group]).length;
-  const panel = filtersOpen && groups.length ? `<div class="filter-panel" id="filter-panel">${groups.map(({ group, title, values }) => `<div class="filter-group"><h3>${title}</h3><div class="chips" role="group" aria-label="${title}">${values.map(value => `<button class="chip" type="button" data-filter="${group}" data-value="${escapeHtml(value)}" aria-pressed="${String(filters[group] === value)}">${escapeHtml(labelOf(group, value))}</button>`).join('')}</div></div>`).join('')}${active ? '<button class="textlink" type="button" id="reset-filters">Сбросить фильтры</button>' : ''}</div>` : '';
+  const panel = filtersOpen && groups.length ? `<div class="filter-panel" id="filter-panel">${groups.map(({ group, title, values, present }) => `<div class="filter-group"><h3>${title}</h3><div class="chips" role="group" aria-label="${title}">${values.map(value => `<button class="chip" type="button" data-filter="${group}" data-value="${escapeHtml(value)}"${present.has(value) || filters[group] === value ? '' : ' disabled'} aria-pressed="${String(filters[group] === value)}">${escapeHtml(labelOf(group, value))}</button>`).join('')}</div></div>`).join('')}${active ? '<button class="textlink" type="button" id="reset-filters">Сбросить фильтры</button>' : ''}</div>` : '';
   toolbar.innerHTML = `<div class="toolbar-row">${groups.length ? `<button class="tool" type="button" id="toggle-filters" aria-expanded="${String(filtersOpen)}" aria-controls="filter-panel">Фильтры${active ? `<span class="n">${active}</span>` : ''}</button>` : '<span></span>'}<label class="sort"><select id="sort" aria-label="Сортировка"><option value="new">Сначала новые</option><option value="asc">Сначала дешевле</option><option value="desc">Сначала дороже</option></select></label></div>${panel}`;
   toolbar.querySelector('#sort').value = filters.sort;
 }
@@ -227,8 +232,10 @@ function renderProducts() {
   const total = products.filter(product => !product.sold).length;
   grid.innerHTML = live.length ? live.map(tileMarkup).join('') : total ? '<p class="empty">Ничего не нашлось. <button class="textlink" type="button" id="reset-filters">Сбросить фильтры</button></p>' : '<p class="empty">Пока ничего нет. Загляните позже.</p>';
   archiveGrid.innerHTML = sold.map(tileMarkup).join('');
-  document.querySelector('#archive').hidden = document.querySelector('#archive-link').hidden = !sold.length;
+  document.querySelector('#archive').hidden = document.querySelector('#menu-archive').hidden = !sold.length;
   document.querySelector('#catalog-count').textContent = total ? `${live.length === total ? '' : `${live.length} из `}${total} ${plural(total, 'вещь', 'вещи', 'вещей')}` : '';
+  document.querySelector('#menu-catalog-count').textContent = total ? `${total} ${plural(total, 'вещь', 'вещи', 'вещей')}` : '';
+  document.querySelector('#menu-archive-count').textContent = sold.length ? `${sold.length}` : '';
   document.querySelector('#archive-count').textContent = sold.length ? `${sold.length} ${plural(sold.length, 'вещь', 'вещи', 'вещей')}` : '';
 }
 
@@ -412,7 +419,46 @@ sheetBody.addEventListener('click', event => {
   if (order?.getAttribute('aria-disabled') === 'true') event.preventDefault();
 });
 
-document.querySelector('#cart-toggle').addEventListener('click', () => openSheet(cartView));
+
+/* ---------- menu and FAQ ---------- */
+const burger = document.querySelector('#burger'), menu = document.querySelector('#menu'), menuScrim = document.querySelector('#menu-scrim');
+function setMenu(open) {
+  menu.hidden = menuScrim.hidden = !open;
+  burger.setAttribute('aria-expanded', String(open));
+  burger.setAttribute('aria-label', open ? 'Закрыть меню' : 'Меню');
+}
+burger.addEventListener('click', () => setMenu(menu.hidden));
+menuScrim.addEventListener('click', () => setMenu(false));
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { setMenu(false); burger.focus(); } });
+
+const FAQ = [
+  ['Как заказать?', 'Добавьте вещи в корзину и нажмите «Оформить в Telegram»: откроется чат с готовым списком вещей и ссылками. Мы подтвердим наличие и договоримся о деталях.'],
+  ['Что значит «в одном экземпляре»?', 'Каждая вещь винтажная и существует в единственном экземпляре. Когда вещь уходит, она переезжает в раздел «Проданное».'],
+  ['Что значит «Бронь»?', 'Вещь придержана за покупателем. Пока бронь не снята, заказать её нельзя.'],
+  ['Как выбрать размер?', 'В паспорте вещи указаны замеры в сантиметрах. Сравните их с вашей любимой вещью, а не ориентируйтесь на размер на бирке: у винтажа он часто отличается от современного.'],
+  ['Что такое дефекты на фото?', 'Мы честно отмечаем потёртости, пятна и следы ремонта. Нажмите «Показать дефекты» на фото вещи.'],
+  ['Оплата и доставка?', 'Согласуем лично в Telegram.'],
+  ['Какие данные вы собираете?', 'Никакие. Сайт только открывает чат Telegram с готовым сообщением.']
+];
+function faqView() {
+  sheet.classList.add('narrow');
+  sheetBody.className = 'sheet-body';
+  sheetBody.dataset.product = '';
+  sheetBody.innerHTML = `<h2 id="sheet-title">FAQ</h2><div class="faq">${FAQ.map(([q, answer]) => `<details><summary>${escapeHtml(q)}</summary><p>${escapeHtml(answer)}</p></details>`).join('')}</div><div class="buy"><a class="primary wide" data-telegram href="${sellerTelegram ? `https://t.me/${sellerTelegram}` : '#'}" target="_blank" rel="noopener noreferrer" aria-disabled="${String(!sellerTelegram)}">Задать вопрос в Telegram</a></div>`;
+}
+
+document.addEventListener('click', event => {
+  const go = event.target.closest('[data-go]');
+  if (!go) return;
+  const target = go.dataset.go;
+  if (target === 'cart' || target === 'faq') {
+    event.preventDefault();
+    setMenu(false);
+    openSheet(target === 'cart' ? cartView : faqView);
+  } else {
+    setMenu(false);
+  }
+});
 
 async function init() {
   try {
@@ -423,7 +469,6 @@ async function init() {
     products = (await response.json()).filter(product => product.active);
     renderToolbar(); renderProducts(); updateCount();
     document.querySelectorAll('[data-telegram]').forEach(link => { if (sellerTelegram) link.href = `https://t.me/${sellerTelegram}`; else link.hidden = true; });
-    document.querySelector('#demo-note').hidden = !products.some(product => product.id.startsWith('demo-'));
     scrollTo(0, 0);
     const selected = byId(new URLSearchParams(location.search).get('product'));
     if (selected) openSheet(productView(selected));
