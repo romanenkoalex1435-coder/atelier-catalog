@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assertId, decodeImage, validateNotes, validateProduct } from '../lib/catalog.js';
+import { assertId, decodeImage, decodePreview, validateNotes, validateProduct } from '../lib/catalog.js';
 
 test('product fields require a valid title and price', () => {
   assert.deepEqual(validateProduct({ title: ' Куртка ', price: '4900', description: 'Ок' }), { title: 'Куртка', price: 4900, description: 'Ок', category: '', size: '', brand: '', era: '', origin: '', condition: '', measures: '' });
@@ -29,4 +29,13 @@ test('photo notes are validated and rounded', () => {
 test('category must be one of the fixed groups', () => {
   assert.equal(validateProduct({ title: 'Куртка', price: 1, category: 'Верхняя одежда' }).category, 'Верхняя одежда');
   assert.throws(() => validateProduct({ title: 'Куртка', price: 1, category: 'Что-то своё' }));
+});
+
+test('cut-out previews must be real transparent WebP or PNG', () => {
+  const png = 'data:image/png;base64,' + Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2]).toString('base64');
+  const webp = 'data:image/webp;base64,' + Buffer.concat([Buffer.from('RIFF'), Buffer.from([1, 0, 0, 0]), Buffer.from('WEBP')]).toString('base64');
+  assert.equal(decodePreview(png).ext, 'png');
+  assert.equal(decodePreview(webp).ext, 'webp');
+  assert.throws(() => decodePreview('data:image/jpeg;base64,AAAA'));
+  assert.throws(() => decodePreview('data:image/png;base64,AAAA'));
 });
