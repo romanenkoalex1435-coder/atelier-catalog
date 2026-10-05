@@ -1,7 +1,7 @@
 const $ = id => document.getElementById(id);
 const loginForm = $('login-form'), panel = $('panel'), list = $('list'), editor = $('editor'), notice = $('notice'), barActions = $('bar-actions');
 const preview = $('preview'), stagePins = $('stage-pins'), pinList = $('pin-list'), strip = $('photo-strip'), pinSection = $('pin-section'), photoInput = $('photo-input');
-const PASSPORT = ['brand', 'era', 'origin', 'condition', 'measures'];
+const PASSPORT = ['category', 'size', 'brand', 'era', 'origin', 'condition', 'measures'];
 const MAX_PHOTOS = 8;
 // photos: [{ src }] where src is an existing /images path or a new JPEG data URL; notes point at a photo object so reordering keeps them attached
 let products = [], editingId = null, photos = [], notes = [], selected = 0;
