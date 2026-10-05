@@ -53,8 +53,6 @@ function updateCount() {
   const changed = cartCount.textContent !== String(total);
   cartCount.textContent = total;
   cartCount.hidden = total === 0;
-  const menuCart = document.querySelector('#menu-cart-count');
-  if (menuCart) menuCart.textContent = total ? `${total} ${plural(total, 'вещь', 'вещи', 'вещей')}` : 'пока пусто';
   if (changed && total > 0 && !reduceMotion.matches) cartCount.animate([{ transform: 'scale(1.5)' }, { transform: 'scale(1)' }], { duration: 420, easing: 'cubic-bezier(.2, 1.8, .4, 1)' });
 }
 
@@ -232,10 +230,8 @@ function renderProducts() {
   const total = products.filter(product => !product.sold).length;
   grid.innerHTML = live.length ? live.map(tileMarkup).join('') : total ? '<p class="empty">Ничего не нашлось. <button class="textlink" type="button" id="reset-filters">Сбросить фильтры</button></p>' : '<p class="empty">Пока ничего нет. Загляните позже.</p>';
   archiveGrid.innerHTML = sold.map(tileMarkup).join('');
-  document.querySelector('#archive').hidden = document.querySelector('#menu-archive').hidden = !sold.length;
+  document.querySelector('#archive').hidden = !sold.length;
   document.querySelector('#catalog-count').textContent = total ? `${live.length === total ? '' : `${live.length} из `}${total} ${plural(total, 'вещь', 'вещи', 'вещей')}` : '';
-  document.querySelector('#menu-catalog-count').textContent = total ? `${total} ${plural(total, 'вещь', 'вещи', 'вещей')}` : '';
-  document.querySelector('#menu-archive-count').textContent = sold.length ? `${sold.length}` : '';
   document.querySelector('#archive-count').textContent = sold.length ? `${sold.length} ${plural(sold.length, 'вещь', 'вещи', 'вещей')}` : '';
 }
 
@@ -420,17 +416,7 @@ sheetBody.addEventListener('click', event => {
 });
 
 
-/* ---------- menu and FAQ ---------- */
-const burger = document.querySelector('#burger'), menu = document.querySelector('#menu'), menuScrim = document.querySelector('#menu-scrim');
-function setMenu(open) {
-  menu.hidden = menuScrim.hidden = !open;
-  burger.setAttribute('aria-expanded', String(open));
-  burger.setAttribute('aria-label', open ? 'Закрыть меню' : 'Меню');
-}
-burger.addEventListener('click', () => setMenu(menu.hidden));
-menuScrim.addEventListener('click', () => setMenu(false));
-document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { setMenu(false); burger.focus(); } });
-
+/* ---------- FAQ ---------- */
 const FAQ = [
   ['Как заказать?', 'Добавьте вещи в корзину и нажмите «Оформить в Telegram»: откроется чат с готовым списком вещей и ссылками. Мы подтвердим наличие и договоримся о деталях.'],
   ['Что значит «в одном экземпляре»?', 'Каждая вещь винтажная и существует в единственном экземпляре. Когда вещь уходит, она переезжает в раздел «Проданное».'],
@@ -450,15 +436,10 @@ function faqView() {
 document.addEventListener('click', event => {
   const go = event.target.closest('[data-go]');
   if (!go) return;
-  const target = go.dataset.go;
-  if (target === 'cart' || target === 'faq') {
-    event.preventDefault();
-    setMenu(false);
-    openSheet(target === 'cart' ? cartView : faqView);
-  } else {
-    setMenu(false);
-  }
+  if (go.dataset.go === 'faq') { event.preventDefault(); openSheet(faqView); }
 });
+
+document.querySelector('#cart-btn').addEventListener('click', () => openSheet(cartView));
 
 async function init() {
   try {
