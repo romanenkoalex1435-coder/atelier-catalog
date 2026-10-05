@@ -1,6 +1,13 @@
 import { isAdmin, sameOrigin } from '../../lib/auth.js';
-import { MAX_PHOTOS, PASSPORT_FIELDS, assertId, decodeImage, validateNotes, validateProduct } from '../../lib/catalog.js';
-import { deletePhoto, getCatalog, saveCatalog, savePhoto } from '../../lib/github.js';
+import { MAX_PHOTOS, PASSPORT_FIELDS, assertId, decodeImage, decodePreview, validateNotes, validateProduct } from '../../lib/catalog.js';
+import { deletePhoto, getCatalog, saveCatalog, savePhoto, savePreview } from '../../lib/github.js';
+
+// body.preview: a data URL saves a new cut-out, '' or null removes it; absent keeps the current one. Returns the new path (or '').
+async function resolvePreview(value, id) {
+  if (!value) return '';
+  const { bytes, ext } = decodePreview(value);
+  return savePreview(`${id}-${Date.now().toString(36)}`, bytes, ext);
+}
 
 const photosOf = product => (Array.isArray(product.images) && product.images.length ? product.images : product.image ? [product.image] : []);
 
@@ -30,7 +37,8 @@ export default async function handler(req, res) {
       const id = `p-${Date.now().toString(36)}`;
       const images = incoming ? await resolvePhotos(incoming, id, []) : [];
       const notes = 'notes' in body ? validateNotes(body.notes, images.length) : [];
-      products.unshift({ id, ...fields, image: images[0] || '', images, notes, active: true, sold: false, reserved: false });
+      const preview = body.preview ? await resolvePreview(body.preview, id) : '';
+      products.unshift({ id, ...fields, image: images[0] || '', images, ...(preview ? { preview } : {}), notes, active: true, sold: false, reserved: false });
       await saveCatalog(products, sha, `Add product ${id}`);
       return res.status(200).json({ products });
     }
@@ -44,11 +52,17 @@ export default async function handler(req, res) {
       if (['title', 'price', 'description', ...PASSPORT_FIELDS].some(key => key in body)) Object.assign(product, validateProduct({ ...product, ...body }));
       for (const flag of ['active', 'sold', 'reserved']) if (typeof body[flag] === 'boolean') product[flag] = body[flag];
       let removed = [];
+      if ('preview' in body) {
+        const before = product.preview;
+        const next = await resolvePreview(body.preview, id);
+        if (next) product.preview = next; else delete product.preview;
+        if (before && before !== next) removed.push(before);
+      }
       if (incoming !== undefined) {
         const before = photosOf(product);
         product.images = await resolvePhotos(incoming, id, before);
         product.image = product.images[0] || '';
-        removed = before.filter(path => !product.images.includes(path));
+        removed.push(...before.filter(path => !product.images.includes(path)));
       }
       const count = photosOf(product).length;
       if ('notes' in body) product.notes = validateNotes(body.notes, count);
@@ -61,7 +75,7 @@ export default async function handler(req, res) {
     if (req.method === 'DELETE') {
       products.splice(index, 1);
       await saveCatalog(products, sha, `Delete product ${id}`);
-      for (const path of photosOf(product)) await deletePhoto(path);
+      for (const path of [...photosOf(product), product.preview].filter(Boolean)) await deletePhoto(path);
       return res.status(200).json({ products });
     }
     return res.status(405).end();

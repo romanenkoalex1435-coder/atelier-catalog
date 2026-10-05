@@ -5,6 +5,7 @@ const PASSPORT = ['category', 'size', 'brand', 'era', 'origin', 'condition', 'me
 const MAX_PHOTOS = 8;
 // photos: [{ src }] where src is an existing /images path or a new JPEG data URL; notes point at a photo object so reordering keeps them attached
 let products = [], editingId = null, photos = [], notes = [], selected = 0;
+let cut = { path: '', data: '', changed: false };   // transparent preview: current path, or a new data URL, or removal
 
 const photosOf = product => (Array.isArray(product.images) && product.images.length ? product.images : product.image ? [product.image] : []);
 
@@ -59,7 +60,7 @@ function render() {
     item.className = `item${product.active ? '' : ' off'}`;
     const thumb = document.createElement('img');
     thumb.className = 'thumb'; thumb.alt = ''; thumb.loading = 'lazy';
-    if (product.image) thumb.src = product.image;
+    if (product.preview || product.image) thumb.src = product.preview || product.image;
     const text = document.createElement('div');
     const title = document.createElement('h3'); title.textContent = product.title;
     const meta = document.createElement('p'); meta.className = 'meta';
@@ -104,11 +105,41 @@ function openEditor(product) {
   // only defects are used on the site; older "detail" pins are not loaded and are dropped on save
   notes = (product?.notes || []).filter(note => note.type === 'flaw').map(note => ({ x: note.x, y: note.y, text: note.text, type: 'flaw', photo: photos[note.img || 0] })).filter(note => note.photo);
   selected = 0;
+  cut = { path: product?.preview || '', data: '', changed: false };
+  renderCut();
   renderPhotos();
   editor.hidden = false;
   editor.title.focus();
   editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
+
+function renderCut() {
+  const src = cut.data || cut.path;
+  $('cut-thumb').hidden = !src;
+  if (src) $('cut-img').src = src;
+  $('cut-remove').hidden = !src;
+  $('cut-add').firstChild.textContent = src ? 'Заменить превью' : 'Загрузить PNG или WebP';
+}
+
+// keeps transparency: WebP where the browser can encode it, PNG otherwise; max 1000 px on the long side
+async function toTransparent(file) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 1000 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const webp = canvas.toDataURL('image/webp', 0.9);
+  return webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/png');
+}
+
+$('cut-input').addEventListener('change', async () => {
+  const file = $('cut-input').files[0];
+  $('cut-input').value = '';
+  if (!file) return;
+  try { cut = { ...cut, data: await toTransparent(file), changed: true }; renderCut(); }
+  catch { say('Не удалось прочитать превью. Нужен PNG или WebP.', true); }
+});
+$('cut-remove').addEventListener('click', () => { cut = { path: '', data: '', changed: true }; renderCut(); });
 
 function renderPhotos() {
   selected = Math.min(selected, Math.max(photos.length - 1, 0));
@@ -194,6 +225,7 @@ editor.addEventListener('submit', async event => {
   save.disabled = true;
   const body = { title: editor.title.value, price: Number(editor.price.value), description: editor.description.value, images: photos.map(photo => photo.src) };
   for (const name of PASSPORT) body[name] = editor[name].value;
+  if (cut.changed) body.preview = cut.data;   // '' removes the preview
   body.notes = notes.filter(note => note.text.trim()).map(note => ({ x: note.x, y: note.y, text: note.text, type: note.type, img: photos.indexOf(note.photo) }));
   const ok = editingId
     ? await mutate(`/api/admin/products?id=${editingId}`, 'PUT', body)

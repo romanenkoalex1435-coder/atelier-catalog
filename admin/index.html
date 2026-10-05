@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
-  <meta name="theme-color" content="#efe5cd">
+  <meta name="theme-color" content="#eee8dc">
   <title>Админ-панель — REWEAR VINTAGE</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/admin/admin.css">
@@ -54,6 +54,14 @@
           <legend>Фото (до 8): первое показывается на обложке</legend>
           <ol class="photo-strip" id="photo-strip"></ol>
           <label class="btn ghost file">Добавить фото<input type="file" id="photo-input" accept="image/*" multiple hidden></label>
+        </fieldset>
+        <fieldset class="photos">
+          <legend>Превью для каталога без фона (необязательно)</legend>
+          <div class="cutrow">
+            <div class="cutthumb" id="cut-thumb" hidden><img id="cut-img" alt="Превью без фона"></div>
+            <div class="row"><label class="btn ghost file" id="cut-add">Загрузить PNG или WebP<input type="file" id="cut-input" accept="image/png,image/webp" hidden></label><button class="btn ghost danger" type="button" id="cut-remove" hidden>Убрать превью</button></div>
+          </div>
+          <p class="fine">Вещь без ковра на прозрачном фоне. Без превью в каталоге показывается фото на ковре целиком. В карточке вещи превью идёт первым кадром.</p>
         </fieldset>
         <div id="pin-section" hidden>
           <p class="fine">Нажмите на фото, чтобы отметить <b>дефект</b> (пятно, потёртость, дыру). Подпишите каждый. На сайте они показываются по кнопке «Показать дефекты» на фото на ковре.</p>
