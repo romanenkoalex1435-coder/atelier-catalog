@@ -45,12 +45,13 @@ h1, h2, h3, p, ol, dl, dd, figure { margin: 0; }
 .cart-toggle span { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; background: var(--accent); color: var(--on-ink); border-radius: 11px; font-size: 13px; font-weight: 600; }
 
 /* hero: the rug fills the first screen, the catalog starts below */
-.hero { position: relative; display: grid; min-height: calc(100vh - 56px); min-height: calc(100svh - 56px); background: #8c3a22; background-image: url(/images/hero-mobile.webp); background-size: cover; background-position: center; isolation: isolate; }
+.hero { position: relative; display: grid; grid-template-rows: 1fr auto; min-height: calc(100vh - 56px); min-height: calc(100svh - 56px); background: #8c3a22; background-image: url(/images/hero-mobile.webp); background-size: cover; background-position: center; isolation: isolate; }
 .hero::before { content: ''; position: absolute; inset: 0; z-index: -1; background: rgba(48, 40, 32, .22); }
 .hero-center { display: grid; place-content: center; justify-items: center; gap: 0; padding: 24px var(--gutter); }
 .hero-center { --mark: clamp(64px, 20vw, 96px); }
 .logo { font: 400 var(--mark)/1 var(--logo); letter-spacing: -.01em; text-align: center; color: #e3d5ae; margin: 0; -webkit-text-stroke: .045em var(--ink); paint-order: stroke fill; text-shadow: 0.0063em 0.0066em 0 #1a1814, 0.0125em 0.0131em 0 #1a1814, 0.0188em 0.0197em 0 #1a1814, 0.0250em 0.0263em 0 #1a1814, 0.0312em 0.0328em 0 #1a1814, 0.0375em 0.0394em 0 #1a1814, 0.0438em 0.0459em 0 #1a1814, 0.0500em 0.0525em 0 #1a1814, 0.0563em 0.0591em 0 #1a1814, 0.0625em 0.0656em 0 #1a1814, 0.0688em 0.0722em 0 #1a1814, 0.0750em 0.0788em 0 #1a1814, 0.0813em 0.0853em 0 #1a1814, 0.0875em 0.0919em 0 #1a1814, 0.0938em 0.0984em 0 #1a1814, 0.1000em 0.1050em 0 #1a1814; filter: url(#aged); }
 .logo-sub { font-size: calc(var(--mark) * .32); margin-top: calc(var(--mark) * -.04); letter-spacing: .06em; }
+.hero-cta { justify-self: center; margin-bottom: calc(28px + env(safe-area-inset-bottom)); min-height: 52px; padding: 0 32px; }
 .cta, .primary { display: inline-flex; align-items: center; justify-content: center; gap: 16px; min-height: 48px; padding: 0 22px; background: var(--accent); color: var(--on-ink); border: 0; border-radius: 0; font-size: 16px; font-weight: 600; text-decoration: none; transition: background-color .2s; }
 .cta:hover, .primary:hover:not([aria-disabled="true"]):not(:disabled) { background: var(--accent-dark); }
 
@@ -130,6 +131,7 @@ h1, h2, h3, p, ol, dl, dd, figure { margin: 0; }
 .slide { flex: 0 0 100%; display: grid; place-items: center; scroll-snap-align: center; padding: 0; }
 .pinbox { position: relative; width: fit-content; max-width: 100%; }
 .pinbox img { display: block; width: auto; height: auto; max-width: 100%; max-height: 56dvh; cursor: zoom-in; }
+.pinbox.cutbox img { box-sizing: border-box; padding: 5%; }
 .pinbox.empty { width: min(100%, 56dvh); aspect-ratio: 4 / 5; }
 .counter { position: absolute; left: 8px; top: 8px; z-index: 2; padding: 2px 8px; background: var(--surface); font-size: 13px; font-weight: 500; pointer-events: none; }
 .dots { position: absolute; left: 0; right: 0; bottom: 6px; display: flex; justify-content: center; gap: 2px; pointer-events: none; }
@@ -220,12 +222,12 @@ h1, h2, h3, p, ol, dl, dd, figure { margin: 0; }
   .sheet.narrow { width: 480px; }
   .sheet-head { cursor: default; min-height: 0; padding: 0; }
   .grabber { display: none; }
-  .sheet-body { padding: 0 32px; }
+  .sheet-body { padding: 24px 32px; }
   .sheet-body.product { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(300px, .85fr); gap: 0 36px; align-content: start; }
-  .sheet-body.product .gallery { margin: 0 0 24px; position: sticky; top: 0; align-self: start; grid-row: 1 / span 20; }
-  .sheet-body.product .gallery .pinbox img { max-height: calc(100dvh - 64px); }
+  .sheet-body.product .gallery { margin: 0 0 24px; position: sticky; top: 24px; align-self: start; grid-row: 1 / span 20; }
+  .sheet-body.product .gallery .pinbox img { max-height: calc(100dvh - 96px); }
   .sheet-body.product > :not(.gallery) { grid-column: 2; }
-  .sheet-body.product .title-row { padding-top: 56px; }
+  .sheet-body.product .title-row { padding-top: 40px; }
   .buy { margin: 20px 0 0; padding: 16px 0 24px; }
 }
 @media (min-width: 1100px) {
