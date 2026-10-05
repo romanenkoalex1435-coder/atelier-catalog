@@ -1,3 +1,4 @@
+import { cutOut, kindForCategory } from './cutout.js';
 const $ = id => document.getElementById(id);
 const loginForm = $('login-form'), panel = $('panel'), list = $('list'), editor = $('editor'), notice = $('notice'), barActions = $('bar-actions');
 const preview = $('preview'), stagePins = $('stage-pins'), pinList = $('pin-list'), strip = $('photo-strip'), pinSection = $('pin-section'), photoInput = $('photo-input');
@@ -5,7 +6,8 @@ const PASSPORT = ['category', 'size', 'brand', 'era', 'origin', 'condition', 'me
 const MAX_PHOTOS = 8;
 // photos: [{ src }] where src is an existing /images path or a new JPEG data URL; notes point at a photo object so reordering keeps them attached
 let products = [], editingId = null, photos = [], notes = [], selected = 0;
-let cut = { path: '', data: '', changed: false };   // transparent preview: current path, or a new data URL, or removal
+let cut = { path: '', data: '', changed: false, pending: null, busy: false };   // transparent preview: saved path, new data URL, or removal; pending = automatic result waiting for a decision
+let autoTried = false;
 
 const photosOf = product => (Array.isArray(product.images) && product.images.length ? product.images : product.image ? [product.image] : []);
 
@@ -105,7 +107,10 @@ function openEditor(product) {
   // only defects are used on the site; older "detail" pins are not loaded and are dropped on save
   notes = (product?.notes || []).filter(note => note.type === 'flaw').map(note => ({ x: note.x, y: note.y, text: note.text, type: 'flaw', photo: photos[note.img || 0] })).filter(note => note.photo);
   selected = 0;
-  cut = { path: product?.preview || '', data: '', changed: false };
+  cut = { path: product?.preview || '', data: '', changed: false, pending: null, busy: false };
+  autoTried = Boolean(product);
+  $('cut-status').hidden = true;
+  $('cut-kind').value = kindForCategory(product?.category);
   renderCut();
   renderPhotos();
   editor.hidden = false;
@@ -113,12 +118,43 @@ function openEditor(product) {
   editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+function say2(text) { const el = $('cut-status'); el.hidden = !text; el.textContent = text || ''; }
+
 function renderCut() {
-  const src = cut.data || cut.path;
-  $('cut-thumb').hidden = !src;
+  const src = cut.pending?.dataUrl || cut.data || cut.path;
+  const original = photos[selected]?.src || photos[0]?.src || '';
+  $('cut-compare').hidden = !(src && original);
   if (src) $('cut-img').src = src;
-  $('cut-remove').hidden = !src;
-  $('cut-add').firstChild.textContent = src ? 'Заменить превью' : 'Загрузить PNG или WebP';
+  if (original) $('cut-orig').src = original;
+  $('cut-caption').textContent = cut.pending ? 'Результат: проверьте края и детали' : 'Так вещь будет в каталоге';
+  const problems = cut.pending?.problems || [];
+  $('cut-problems').hidden = !problems.length;
+  $('cut-problems').replaceChildren(...problems.map(text => Object.assign(document.createElement('li'), { textContent: text })));
+  $('cut-run').hidden = Boolean(cut.pending);
+  $('cut-run').disabled = cut.busy || !photos.length;
+  $('cut-run').textContent = cut.busy ? 'Вырезаем…' : (cut.data || cut.path ? 'Вырезать заново' : 'Вырезать автоматически');
+  $('cut-accept').hidden = !cut.pending;
+  $('cut-accept').textContent = problems.length ? 'Всё равно использовать' : 'Использовать это превью';
+  $('cut-reject').hidden = !cut.pending;
+  $('cut-remove').hidden = !(cut.data || cut.path) || Boolean(cut.pending);
+  $('cut-add').hidden = Boolean(cut.pending);
+}
+
+async function runCut() {
+  if (cut.busy || !photos.length) return;
+  cut = { ...cut, busy: true, pending: null };
+  renderCut();
+  try {
+    const result = await cutOut(photos[selected].src, $('cut-kind').value, say2);
+    // a clean result is taken at once (still shown next to the original); one with warnings waits for the owner
+    if (result.problems.length) { cut = { ...cut, pending: result }; say2('Есть замечания к вырезке: посмотрите на края и решите.'); }
+    else { cut = { ...cut, data: result.dataUrl, changed: true, pending: null }; say2('Готово, замечаний нет. Всё равно сравните с оригиналом и нажмите «Сохранить».'); }
+  } catch (error) {
+    say2(`Не получилось вырезать: ${error.message || 'ошибка'}. Фото останется на ковре, или загрузите своё превью.`);
+  } finally {
+    cut = { ...cut, busy: false };
+    renderCut();
+  }
 }
 
 // keeps transparency: WebP where the browser can encode it, PNG otherwise; max 1000 px on the long side
@@ -136,10 +172,17 @@ $('cut-input').addEventListener('change', async () => {
   const file = $('cut-input').files[0];
   $('cut-input').value = '';
   if (!file) return;
-  try { cut = { ...cut, data: await toTransparent(file), changed: true }; renderCut(); }
+  try { cut = { ...cut, data: await toTransparent(file), changed: true, pending: null }; say2('Своё превью загружено.'); renderCut(); }
   catch { say('Не удалось прочитать превью. Нужен PNG или WebP.', true); }
 });
-$('cut-remove').addEventListener('click', () => { cut = { path: '', data: '', changed: true }; renderCut(); });
+$('cut-remove').addEventListener('click', () => { cut = { path: '', data: '', changed: true, pending: null, busy: false }; say2(''); renderCut(); });
+$('cut-run').addEventListener('click', runCut);
+$('cut-accept').addEventListener('click', () => { cut = { ...cut, data: cut.pending.dataUrl, changed: true, pending: null }; say2('Превью принято. Нажмите «Сохранить».'); renderCut(); });
+$('cut-reject').addEventListener('click', () => { cut = { ...cut, pending: null }; say2('Оставляем фото на ковре (или загрузите своё превью).'); renderCut(); });
+$('cut-kind').addEventListener('change', () => { if (cut.data && !cut.path) say2('Тип вещи изменён: нажмите «Вырезать заново», чтобы применить масштаб.'); });
+editor.category.addEventListener('change', () => { $('cut-kind').value = kindForCategory(editor.category.value); });
+try { $('cut-auto').checked = localStorage.getItem('rewear-cut-auto') !== '0'; } catch {}
+$('cut-auto').addEventListener('change', () => { try { localStorage.setItem('rewear-cut-auto', $('cut-auto').checked ? '1' : '0'); } catch {} });
 
 function renderPhotos() {
   selected = Math.min(selected, Math.max(photos.length - 1, 0));
@@ -161,6 +204,7 @@ function renderPhotos() {
   }));
   $('photo-input').closest('label').hidden = photos.length >= MAX_PHOTOS;
   pinSection.hidden = !photos.length;
+  if (typeof renderCut === 'function') renderCut();
   if (photos.length) preview.src = photos[selected].src;
   renderNotes();
 }
@@ -184,6 +228,7 @@ photoInput.addEventListener('change', async () => {
   }
   selected = Math.max(photos.length - files.length, 0);
   renderPhotos();
+  if ($('cut-auto').checked && !autoTried && !cut.data && !cut.path && photos.length) { autoTried = true; selected = 0; renderPhotos(); runCut(); }
 });
 
 function renderNotes() {
@@ -221,6 +266,8 @@ preview.addEventListener('click', event => {
 
 editor.addEventListener('submit', async event => {
   event.preventDefault();
+  if (cut.pending) { say('Сначала решите по превью: «Использовать» или «Оставить фото на ковре».', true); return; }
+  if (cut.busy) { say('Подождите, идёт вырезка.', true); return; }
   const save = $('save');
   save.disabled = true;
   const body = { title: editor.title.value, price: Number(editor.price.value), description: editor.description.value, images: photos.map(photo => photo.src) };
