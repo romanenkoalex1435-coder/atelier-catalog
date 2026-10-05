@@ -170,10 +170,9 @@ const decadeLabel = decade => `${String(decade % 100).padStart(2, '0')}-е`;
 
 function tileMarkup(product) {
   const sub = [product.era, product.condition].filter(Boolean).join(' · ');
-  const demo = product.id.startsWith('demo-') ? '<span class="pill">Пример</span>' : '';
-  const sticker = product.sold ? '<span class="sticker gone">Ушло</span>' : product.reserved ? '<span class="sticker hold">Бронь</span>' : `<span class="sticker">${currency(product.price)}</span>`;
-  const count = photosOf(product).length;
-  return `<button class="tile${product.sold ? ' sold' : ''}${product.reserved ? ' reserved' : ''}" type="button" data-id="${escapeHtml(product.id)}"><div class="tile-image">${imageMarkup(product)}${demo}${sticker}${count > 1 ? `<span class="count" aria-label="Фото: ${count}">${count} фото</span>` : ''}</div><div class="tile-meta"><h3>${escapeHtml(product.title)}</h3>${sub ? `<span class="sub">${escapeHtml(sub)}</span>` : ''}</div></button>`;
+  const status = product.sold ? '<span class="pill">Ушло</span>' : product.reserved ? '<span class="pill">Бронь</span>' : '';
+  const price = product.sold ? '' : `<span class="price">${currency(product.price)}</span>`;
+  return `<button class="tile${product.sold ? ' sold' : ''}${product.reserved ? ' reserved' : ''}" type="button" data-id="${escapeHtml(product.id)}"><div class="tile-image">${imageMarkup(product)}${status}</div><div class="tile-meta"><h3>${escapeHtml(product.title)}</h3>${price}${sub ? `<span class="sub">${escapeHtml(sub)}</span>` : ''}</div></button>`;
 }
 
 function visibleProducts() {
@@ -251,7 +250,7 @@ function cartView() {
   const link = cart.length && sellerTelegram ? `https://t.me/${sellerTelegram}?text=${encodeURIComponent(buildMessage())}` : '#';
   const disabled = !cart.length || !sellerTelegram;
   sheetBody.dataset.product = '';
-  sheetBody.innerHTML = `<h2 id="sheet-title" class="display" aria-label="Корзина">Cart</h2>${cart.length ? `<p class="cart-count">${cart.length} ${plural(cart.length, 'вещь', 'вещи', 'вещей')} · каждая в единственном экземпляре</p>` : ''}${cart.length ? lines : '<p class="empty-cart">Пока пусто. Выберите вещь в каталоге.</p>'}<div class="total-row"><span>Итого</span><strong>${currency(cartTotal())}</strong></div><a class="primary" id="telegram-order" href="${link}" target="_blank" rel="noopener noreferrer" aria-disabled="${disabled}">Написать в Telegram</a><p class="hint">${sellerTelegram ? 'Откроется Telegram с готовым сообщением: список вещей и ссылки. Мы ничего о вас не собираем. Оплата на сайте не проводится.' : 'Telegram продавца пока не настроен.'}</p>`;
+  sheetBody.innerHTML = `<h2 id="sheet-title">Корзина</h2>${cart.length ? `<p class="cart-count">${cart.length} ${plural(cart.length, 'вещь', 'вещи', 'вещей')} · каждая в единственном экземпляре</p>` : ''}${cart.length ? lines : '<p class="empty-cart">Пока пусто. Выберите вещь в каталоге.</p>'}<div class="total-row"><span>Итого</span><strong>${currency(cartTotal())}</strong></div><a class="primary" id="telegram-order" href="${link}" target="_blank" rel="noopener noreferrer" aria-disabled="${disabled}">Написать в Telegram</a><p class="hint">${sellerTelegram ? 'Откроется Telegram с готовым сообщением: список вещей и ссылки. Мы ничего о вас не собираем. Оплата на сайте не проводится.' : 'Telegram продавца пока не настроен.'}</p>`;
 }
 
 function buildMessage() {
