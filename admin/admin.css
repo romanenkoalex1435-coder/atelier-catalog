@@ -49,7 +49,7 @@
 .photo-tools .btn { height: 28px; padding: 0 8px; flex: 1; font-size: 13px; }
 .file { display: inline-flex; align-items: center; width: fit-content; cursor: pointer; }
 .pin-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.pin-list li { display: grid; grid-template-columns: 24px 1fr auto auto; gap: 8px; align-items: center; }
+.pin-list li { display: grid; grid-template-columns: 24px 1fr auto; gap: 8px; align-items: center; }
 .pin-list small { grid-column: 2; color: var(--steel); font-size: 12px; margin-top: -4px; }
 .pin-list .num { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--steel); border-radius: 50%; font-size: 11px; color: var(--steel); }
 .pin-list .num.flaw { background: var(--accent); border-color: var(--accent); color: var(--on-ink); }

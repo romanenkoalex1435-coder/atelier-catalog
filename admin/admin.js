@@ -101,7 +101,8 @@ function openEditor(product) {
   editor.description.value = product?.description ?? '';
   for (const name of PASSPORT) editor[name].value = product?.[name] ?? '';
   photos = product ? photosOf(product).map(src => ({ src })) : [];
-  notes = (product?.notes || []).map(note => ({ x: note.x, y: note.y, text: note.text, type: note.type === 'flaw' ? 'flaw' : 'detail', photo: photos[note.img || 0] })).filter(note => note.photo);
+  // only defects are used on the site; older "detail" pins are not loaded and are dropped on save
+  notes = (product?.notes || []).filter(note => note.type === 'flaw').map(note => ({ x: note.x, y: note.y, text: note.text, type: 'flaw', photo: photos[note.img || 0] })).filter(note => note.photo);
   selected = 0;
   renderPhotos();
   editor.hidden = false;
@@ -159,22 +160,20 @@ function renderNotes() {
   stagePins.replaceChildren(...notes.map((note, i) => {
     if (note.photo !== current) return '';
     const pin = document.createElement('span');
-    pin.className = `apin${note.type === 'flaw' ? ' flaw' : ''}`; pin.textContent = i + 1;
+    pin.className = 'apin flaw'; pin.textContent = i + 1;
     pin.style.left = `${note.x}%`; pin.style.top = `${note.y}%`;
     return pin;
   }).filter(Boolean));
   pinList.replaceChildren(...notes.map((note, i) => {
     const row = document.createElement('li');
-    const num = document.createElement('span'); num.className = `num${note.type === 'flaw' ? ' flaw' : ''}`; num.textContent = i + 1;
+    const num = document.createElement('span'); num.className = 'num flaw'; num.textContent = i + 1;
     const input = document.createElement('input');
-    input.value = note.text; input.maxLength = 80; input.placeholder = 'Что здесь? Например: ручная заплатка боро';
+    input.value = note.text; input.maxLength = 80; input.placeholder = 'Что за дефект? Например: пятно у манжеты';
     input.setAttribute('aria-label', `Подпись точки ${i + 1} (фото ${photos.indexOf(note.photo) + 1})`);
     input.addEventListener('input', () => { note.text = input.value; });
-    const type = button(note.type === 'flaw' ? 'Дефект' : 'Деталь', () => { note.type = note.type === 'flaw' ? 'detail' : 'flaw'; renderNotes(); }, note.type === 'flaw' ? 'danger' : '');
-    type.title = 'Переключить: деталь или дефект';
     const del = button('×', () => { notes.splice(i, 1); renderNotes(); });
     del.setAttribute('aria-label', 'Убрать точку');
-    row.append(num, input, type, del);
+    row.append(num, input, del);
     const where = document.createElement('small'); where.textContent = `фото ${photos.indexOf(note.photo) + 1}`;
     row.append(where);
     return row;
@@ -184,7 +183,7 @@ function renderNotes() {
 preview.addEventListener('click', event => {
   if (notes.length >= 12) return say('Не больше 12 точек.', true);
   const box = preview.getBoundingClientRect();
-  notes.push({ x: Math.round((event.clientX - box.left) / box.width * 1000) / 10, y: Math.round((event.clientY - box.top) / box.height * 1000) / 10, text: '', type: 'detail', photo: photos[selected] });
+  notes.push({ x: Math.round((event.clientX - box.left) / box.width * 1000) / 10, y: Math.round((event.clientY - box.top) / box.height * 1000) / 10, text: '', type: 'flaw', photo: photos[selected] });
   renderNotes();
   pinList.querySelector('li:last-child input')?.focus();
 });

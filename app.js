@@ -234,23 +234,27 @@ function productView(product) {
   return () => {
     sheet.classList.remove('narrow');
     sheetBody.className = 'sheet-body product';
-    const photos = photosOf(product);
-    const notes = Array.isArray(product.notes) ? product.notes : [];
+    const originals = photosOf(product);
+    // the cut-out preview goes first (no rug); the originals on the rug follow and carry the defect pins
+    const cut = hasCut(product) ? previewOf(product) : '';
+    const slideList = [...(cut ? [{ src: cut, cut: true }] : []), ...originals.map((src, i) => ({ src, index: i }))];
+    const offset = cut ? 1 : 0;
+    const defects = (Array.isArray(product.notes) ? product.notes : []).filter(note => note.type === 'flaw');
     const description = !product.description ? '' : `<p class="sheet-desc">${escapeHtml(product.description)}</p>`;
     const rows = [['Категория', product.category], ['Размер', product.size], ['Бренд', product.brand], ['Эпоха', product.era], ['Происхождение', product.origin], ['Состояние', product.condition], ['Замеры, см', product.measures]].filter(([, value]) => value);
     const passport = rows.length ? `<h3 class="block-title">Паспорт вещи</h3><dl class="passport">${rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>` : '';
-    const pinsFor = index => notes.map((note, i) => (note.img || 0) === index ? `<button class="pin${note.type === 'flaw' ? ' flaw' : ''}" type="button" data-note="${i}" style="left:${Number(note.x)}%;top:${Number(note.y)}%" aria-label="${note.type === 'flaw' ? 'Дефект' : 'Деталь'} ${i + 1}: ${escapeHtml(note.text)}">${i + 1}</button>` : '').join('');
-    const slides = photos.length ? photos.map((src, i) => `<figure class="slide"><div class="pinbox"><img src="${escapeHtml(src)}" alt="${escapeHtml(product.title)}, фото ${i + 1} из ${photos.length}" data-zoom="${escapeHtml(src)}"${i ? ' loading="lazy"' : ''}>${pinsFor(i)}</div></figure>`).join('') : `<figure class="slide"><div class="pinbox empty"><span class="placeholder">${hanger}</span></div></figure>`;
-    const dots = photos.length > 1 ? `<span class="counter" id="counter">1 / ${photos.length}</span><div class="dots">${photos.map((_, i) => `<button type="button" class="dot" data-slide="${i}" aria-label="Фото ${i + 1}" aria-current="${i === 0}"></button>`).join('')}</div>` : '';
-    const tools = notes.length ? '<div class="gallery-tools"><button type="button" id="toggle-pins" aria-pressed="false">Показать детали</button></div>' : '';
-    const noteList = notes.length ? `<h3 class="block-title">Детали и дефекты</h3><ol class="notes">${notes.map((note, i) => `<li><button class="note${note.type === 'flaw' ? ' flaw' : ''}" type="button" data-note="${i}" data-img="${note.img || 0}"><span>${i + 1}</span><b>${escapeHtml(note.text)}</b>${note.type === 'flaw' ? '<em>дефект</em>' : ''}</button></li>`).join('')}</ol>` : '';
+    const pinsFor = index => defects.map((note, i) => (note.img || 0) === index ? `<button class="pin flaw" type="button" data-note="${i}" style="left:${Number(note.x)}%;top:${Number(note.y)}%" aria-label="Дефект ${i + 1}: ${escapeHtml(note.text)}">${i + 1}</button>` : '').join('');
+    const slides = slideList.length ? slideList.map((slide, n) => `<figure class="slide"><div class="pinbox${slide.cut ? ' cutbox' : ''}"><img src="${escapeHtml(slide.src)}" alt="${escapeHtml(product.title)}${slide.cut ? '' : ', фото на ковре'}, ${n + 1} из ${slideList.length}" data-zoom="${escapeHtml(slide.src)}"${n ? ' loading="lazy"' : ''}>${slide.cut ? '' : pinsFor(slide.index)}</div></figure>`).join('') : `<figure class="slide"><div class="pinbox empty"><span class="placeholder">${hanger}</span></div></figure>`;
+    const dots = slideList.length > 1 ? `<span class="counter" id="counter">1 / ${slideList.length}</span><div class="dots">${slideList.map((_, i) => `<button type="button" class="dot" data-slide="${i}" aria-label="Фото ${i + 1}" aria-current="${i === 0}"></button>`).join('')}</div>` : '';
+    const tools = defects.length ? '<div class="gallery-tools"><button type="button" id="toggle-pins" aria-pressed="false">Показать дефекты</button></div>' : '';
+    const noteList = defects.length ? `<h3 class="block-title">Дефекты</h3><ol class="notes">${defects.map((note, i) => `<li><button class="note flaw" type="button" data-note="${i}" data-img="${(note.img || 0) + offset}"><span>${i + 1}</span><b>${escapeHtml(note.text)}</b></button></li>`).join('')}</ol>` : '';
     sheetBody.dataset.product = product.id;
     sheetBody.innerHTML = `<div class="gallery"><div class="slides" id="slides" tabindex="0" aria-label="Фото вещи, листайте вбок">${slides}</div>${dots}${tools}</div><div class="title-row"><h2 id="sheet-title">${escapeHtml(product.title)}</h2><button class="textlink share" type="button" data-share="${escapeHtml(product.id)}">Поделиться</button></div>${description}${passport}${noteList}${buyPanel(product)}`;
     const slidesEl = sheetBody.querySelector('#slides');
     slidesEl?.addEventListener('scroll', () => {
       const index = Math.round(slidesEl.scrollLeft / (slidesEl.clientWidth || 1));
       const counter = sheetBody.querySelector('#counter');
-      if (counter) counter.textContent = `${index + 1} / ${photos.length}`;
+      if (counter) counter.textContent = `${index + 1} / ${slideList.length}`;
       sheetBody.querySelectorAll('.dot').forEach((dot, i) => dot.setAttribute('aria-current', String(i === index)));
     }, { passive: true });
   };
@@ -345,8 +349,16 @@ sheetBody.addEventListener('click', event => {
   if (toggle) {
     const on = toggle.getAttribute('aria-pressed') !== 'true';
     toggle.setAttribute('aria-pressed', String(on));
-    toggle.textContent = on ? 'Скрыть детали' : 'Показать детали';
+    toggle.textContent = on ? 'Скрыть дефекты' : 'Показать дефекты';
     sheetBody.querySelectorAll('.pinbox').forEach(box => box.classList.toggle('pins-on', on));
+    // defects are marked on the originals: jump to the first photo that has a pin
+    const slidesEl = sheetBody.querySelector('#slides');
+    const first = sheetBody.querySelector('.note');
+    if (on && slidesEl && first) {
+      const current = Math.round(slidesEl.scrollLeft / (slidesEl.clientWidth || 1));
+      const hasPin = sheetBody.querySelectorAll('.slide')[current]?.querySelector('.pin');
+      if (!hasPin) slideTo(first.dataset.img);
+    }
     return;
   }
   const noteButton = event.target.closest('[data-note]');
