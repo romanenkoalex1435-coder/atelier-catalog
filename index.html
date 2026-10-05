@@ -53,11 +53,23 @@
       <div class="section-head"><h2 id="archive-title">Проданное</h2><p class="section-meta" id="archive-count"></p></div>
       <div class="product-grid" id="archive-grid"></div>
     </section>
+
+    <section class="about" id="about" aria-labelledby="about-title">
+      <div class="section-head"><h2 id="about-title">О магазине</h2></div>
+      <ol class="about-points">
+        <li><h3>Одна вещь — один экземпляр</h3><p>Каждую вещь мы находим, проверяем и фотографируем на одном и том же ковре. Когда она уходит, она переезжает в раздел «Проданное».</p></li>
+        <li><h3>Честно о состоянии</h3><p>В паспорте каждой вещи — замеры в сантиметрах. Потёртости и дефекты отмечены прямо на фото: нажмите «Показать дефекты».</p></li>
+        <li><h3>Заказ в Telegram</h3><p>Корзина собирает готовое сообщение со списком вещей. Оплату и доставку согласуем лично — без регистрации и без данных на сайте.</p></li>
+      </ol>
+      <dl class="about-facts" id="about-facts" hidden></dl>
+    </section>
   </main>
 
   <footer class="site-footer">
     <div class="footer-brand"><p class="footer-mark">Rewear</p><p class="footer-sub">Vintage</p></div>
     <nav class="footer-links" aria-label="Подвал">
+      <a class="footer-link" href="#archive" id="footer-archive" hidden>Проданное</a>
+      <a class="footer-link" href="#" id="footer-channel" target="_blank" rel="noopener noreferrer" hidden>Канал</a>
       <button class="footer-link" type="button" data-go="faq">FAQ</button>
       <a class="footer-tg" data-telegram href="#" target="_blank" rel="noopener noreferrer">Telegram</a>
     </nav>

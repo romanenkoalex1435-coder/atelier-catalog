@@ -1,17 +1,12 @@
 // Link preview for /p/<id>: Telegram and other crawlers read the Open Graph tags, people are redirected to the catalog.
+import { publicProducts, siteOrigin } from '../lib/public-catalog.js';
+
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 
 export default async function handler(req, res) {
   const id = String(req.query?.id ?? '');
-  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0];
-  const origin = `${proto}://${req.headers.host}`;
-  let product = null;
-  if (/^[a-z0-9-]{1,60}$/.test(id)) {
-    try {
-      const response = await fetch(`${origin}/data/products.json`);
-      if (response.ok) product = (await response.json()).find(item => item.id === id && item.active) || null;
-    } catch { /* fall back to the plain site preview */ }
-  }
+  const origin = siteOrigin(req);
+  const product = /^[a-z0-9-]{1,60}$/.test(id) ? (await publicProducts(req)).find(item => item.id === id) || null : null;
   const photo = product && [...(product.images || []), product.image].find(src => /^\/images\/[a-z0-9.-]+$/.test(src || ''));
   const price = product ? `${new Intl.NumberFormat('ru-RU').format(product.price)} ₽` : '';
   const title = product ? `${product.title} — ${product.sold ? 'ушло' : price} · REWEAR VINTAGE` : 'REWEAR VINTAGE — винтаж в единственном экземпляре';

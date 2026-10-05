@@ -1,7 +1,7 @@
 /* open on the hero: the browser must not restore an old scroll position (the catalog loads after the page and would push it down) */
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 // section links must not leave "#catalog" in the address bar, otherwise the next visit opens the catalog instead of the hero
-const SECTIONS = ['#catalog', '#archive'];
+const SECTIONS = ['#catalog', '#archive', '#about'];
 const cleanUrl = () => history.replaceState(null, '', location.pathname + location.search);
 if (SECTIONS.includes(location.hash)) cleanUrl();
 scrollTo(0, 0);
@@ -192,8 +192,11 @@ const decadeLabel = decade => `${String(decade % 100).padStart(2, '0')}-е`;
 const valueOf = (product, group) => group === 'era' ? (decadeOf(product.era) ? String(decadeOf(product.era)) : '') : String(product[group] || '');
 const labelOf = (group, value) => group === 'era' ? decadeLabel(Number(value)) : value;
 
+// items added through the admin carry createdAt; "Новое" for two weeks
+const isNew = product => Boolean(product.createdAt) && Date.now() - Date.parse(product.createdAt) < 14 * 864e5;
+
 function tileMarkup(product) {
-  const status = product.sold ? '<span class="tag sold">Продано</span>' : product.reserved ? '<span class="tag">Бронь</span>' : '';
+  const status = product.sold ? '<span class="tag sold">Продано</span>' : product.reserved ? '<span class="tag">Бронь</span>' : isNew(product) ? '<span class="tag new">Новое</span>' : '';
   const count = photosOf(product).length;
   const size = product.size ? `<p class="tile-size">Размер: ${escapeHtml(product.size)}</p>` : '';
   const cond = product.condition ? `<p class="tile-cond">${escapeHtml(product.condition)}</p>` : '';
@@ -230,7 +233,7 @@ function renderProducts() {
   const total = products.filter(product => !product.sold).length;
   grid.innerHTML = live.length ? live.map(tileMarkup).join('') : total ? '<p class="empty">Ничего не нашлось. <button class="textlink" type="button" id="reset-filters">Сбросить фильтры</button></p>' : '<p class="empty">Пока ничего нет. Загляните позже.</p>';
   archiveGrid.innerHTML = sold.map(tileMarkup).join('');
-  document.querySelector('#archive').hidden = !sold.length;
+  document.querySelector('#archive').hidden = document.querySelector('#footer-archive').hidden = !sold.length;
   document.querySelector('#catalog-count').textContent = total ? `${live.length === total ? '' : `${live.length} из `}${total} ${plural(total, 'вещь', 'вещи', 'вещей')}` : '';
   document.querySelector('#archive-count').textContent = sold.length ? `${sold.length} ${plural(sold.length, 'вещь', 'вещи', 'вещей')}` : '';
 }
@@ -246,6 +249,15 @@ function buyPanel(product, justAdded = false) {
   if (product.reserved) return '<div class="buy"><div class="buy-row"><span class="buy-price">' + currency(product.price) + '</span><button class="primary" type="button" disabled>Забронировано</button></div></div>';
   if (justAdded || cart.some(item => item.id === product.id)) return `<div class="buy"><p class="added">${justAdded ? 'Добавлено в корзину' : 'Уже в корзине'}</p><div class="buy-actions"><button class="primary" id="open-cart" type="button">Открыть корзину</button><button class="ghost" id="keep-looking" type="button">Продолжить</button></div></div>`;
   return `<div class="buy"><div class="buy-row"><span class="buy-price">${currency(product.price)}</span><button class="primary" id="add" type="button">В корзину</button></div></div>`;
+}
+
+// up to four other pieces: same category first, then the newest
+function relatedMarkup(product) {
+  const live = products.filter(item => item.id !== product.id && !item.sold);
+  const same = live.filter(item => product.category && item.category === product.category);
+  const picks = [...same, ...live.filter(item => !same.includes(item))].slice(0, 4);
+  if (!picks.length) return '';
+  return `<h3 class="block-title">${picks.every(item => same.includes(item)) ? 'Ещё из этой категории' : 'Ещё вещи'}</h3><div class="related">${picks.map(tileMarkup).join('')}</div>`;
 }
 
 function productView(product) {
@@ -267,7 +279,7 @@ function productView(product) {
     const tools = defects.length ? '<div class="gallery-tools"><button type="button" id="toggle-pins" aria-pressed="false">Показать дефекты</button></div>' : '';
     const noteList = defects.length ? `<h3 class="block-title">Дефекты</h3><ol class="notes">${defects.map((note, i) => `<li><button class="note flaw" type="button" data-note="${i}" data-img="${(note.img || 0) + offset}"><span>${i + 1}</span><b>${escapeHtml(note.text)}</b></button></li>`).join('')}</ol>` : '';
     sheetBody.dataset.product = product.id;
-    sheetBody.innerHTML = `<div class="gallery"><div class="slides" id="slides" tabindex="0" aria-label="Фото вещи, листайте вбок">${slides}</div>${dots}${tools}</div><div class="title-row"><h2 id="sheet-title">${escapeHtml(product.title)}</h2><button class="textlink share" type="button" data-share="${escapeHtml(product.id)}">Поделиться</button></div>${description}${passport}${noteList}${buyPanel(product)}`;
+    sheetBody.innerHTML = `<div class="gallery"><div class="slides" id="slides" tabindex="0" aria-label="Фото вещи, листайте вбок">${slides}</div>${dots}${tools}</div><div class="title-row"><h2 id="sheet-title">${escapeHtml(product.title)}</h2><button class="textlink share" type="button" data-share="${escapeHtml(product.id)}">Поделиться</button></div>${description}${passport}${noteList}${relatedMarkup(product)}${buyPanel(product)}`;
     const slidesEl = sheetBody.querySelector('#slides');
     slidesEl?.addEventListener('scroll', () => {
       const index = Math.round(slidesEl.scrollLeft / (slidesEl.clientWidth || 1));
@@ -353,6 +365,8 @@ const slideTo = index => {
 };
 
 sheetBody.addEventListener('click', event => {
+  const related = event.target.closest('.related [data-id]');
+  if (related && byId(related.dataset.id)) { openSheet(productView(byId(related.dataset.id))); sheetBody.scrollTop = 0; return; }
   const dot = event.target.closest('[data-slide]');
   if (dot) { slideTo(dot.dataset.slide); return; }
   const share = event.target.closest('[data-share]');
@@ -449,6 +463,15 @@ async function init() {
     if (!response.ok) throw new Error('Каталог недоступен.');
     products = (await response.json()).filter(product => product.active);
     renderToolbar(); renderProducts(); updateCount();
+    const about = config.about || {};
+    const facts = [['Город', about.city], ['Доставка', about.delivery], ['Возврат', about.returns]].filter(([, value]) => value);
+    const factsEl = document.querySelector('#about-facts');
+    factsEl.hidden = !facts.length;
+    factsEl.innerHTML = facts.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('');
+    const channel = /^[A-Za-z0-9_]{5,32}$/.test(about.channel || '') ? about.channel : '';
+    const channelLink = document.querySelector('#footer-channel');
+    channelLink.hidden = !channel;
+    if (channel) channelLink.href = `https://t.me/${channel}`;
     document.querySelectorAll('[data-telegram]').forEach(link => { if (sellerTelegram) link.href = `https://t.me/${sellerTelegram}`; else link.hidden = true; });
     scrollTo(0, 0);
     const selected = byId(new URLSearchParams(location.search).get('product'));
