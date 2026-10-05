@@ -25,3 +25,8 @@ test('photo notes are validated and rounded', () => {
   assert.throws(() => validateNotes([{ x: 1, y: 1, text: '' }]));
   assert.throws(() => validateNotes(Array(13).fill({ x: 1, y: 1, text: 'a' })));
 });
+
+test('category must be one of the fixed groups', () => {
+  assert.equal(validateProduct({ title: 'Куртка', price: 1, category: 'Верхняя одежда' }).category, 'Верхняя одежда');
+  assert.throws(() => validateProduct({ title: 'Куртка', price: 1, category: 'Что-то своё' }));
+});
