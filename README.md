@@ -17,6 +17,17 @@
 
 Чтобы сменить пароль, повторите шаги 1–2.
 
+## Превью товаров без фона
+
+Один раз при добавлении вещи подготовьте вырезку (на своём компьютере, не на сервере):
+
+```bash
+pip install rembg onnxruntime pillow numpy scipy
+python3 scripts/make-preview.py images/p-abc.jpg --id p-abc --kind top   # top | bottom | accessory
+```
+
+Скрипт создаёт `images/preview/p-abc.webp` (прозрачный, 4:5). Затем добавьте вещи поле `"preview": "/images/preview/p-abc.webp"` в `data/products.json`. Если скрипт пишет `REJECTED`, вырезка плохая и файл не создаётся: в каталоге остаётся оригинал целиком. Новые вещи из админки тоже показываются оригиналом, пока превью не добавлено.
+
 ## Превью ссылок
 
 Ссылки на вещи в сообщении заказа имеют вид `https://<сайт>/p/<id>`: функция `api/share.js` отдаёт Open Graph с фото и ценой и перекидывает человека в каталог. В `index.html` у `og:image` указан адрес `https://atelier-catalog.vercel.app/og.jpg`; при подключении своего домена замените его там.

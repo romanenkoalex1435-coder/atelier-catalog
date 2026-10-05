@@ -4,8 +4,8 @@
 :root {
   --paper: #eee8dc;
   --surface: #f5f0e7;
-  --plate: #e3dac9;
-  --tile: #e3dac9;
+  --plate: #e6ddce;
+  --tile: #e6ddce;
   --ink: #302820;
   --on-ink: #fbf6ee;
   --steel: #65594c;
@@ -83,8 +83,10 @@ h1, h2, h3, p, ol, dl, dd, figure { margin: 0; }
 .product-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px var(--gap); padding-bottom: 8px; }
 .tile { display: block; width: 100%; min-width: 0; padding: 0; background: none; border: 0; text-align: left; }
 .tile-image { position: relative; aspect-ratio: 4 / 5; overflow: hidden; background: var(--plate); }
-.tile-image img { display: block; width: 100%; height: 100%; object-fit: contain; transition: transform .4s cubic-bezier(.2, .7, .2, 1); }
-.tile:hover .tile-image img { transform: scale(1.02); }
+.tile-image img { display: block; width: 100%; height: 100%; object-fit: contain; }
+/* cut-out preview (transparent 4:5 WebP): flat plate colour and ~7% inner padding; originals on the rug are shown whole without padding */
+.tile-image.cut img, .cart-thumb.cut img { padding: 7%; }
+.cart-thumb.cut img { padding: 4%; }
 .placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(var(--shade), .25); }
 .placeholder svg { width: 34%; height: auto; }
 .tag { position: absolute; top: 8px; left: 8px; z-index: 2; padding: 3px 9px; background: var(--ink); color: var(--on-ink); font-size: 13px; font-weight: 500; line-height: 1.4; }
