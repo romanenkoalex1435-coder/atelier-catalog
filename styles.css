@@ -51,7 +51,10 @@ h1, h2, h3, p, ol, dl, dd, figure { margin: 0; }
 .hero-center { --mark: clamp(64px, 20vw, 96px); }
 .logo { font: 400 var(--mark)/1 var(--logo); letter-spacing: -.01em; text-align: center; color: #e3d5ae; margin: 0; -webkit-text-stroke: .045em var(--ink); paint-order: stroke fill; text-shadow: 0.0063em 0.0066em 0 #1a1814, 0.0125em 0.0131em 0 #1a1814, 0.0188em 0.0197em 0 #1a1814, 0.0250em 0.0263em 0 #1a1814, 0.0312em 0.0328em 0 #1a1814, 0.0375em 0.0394em 0 #1a1814, 0.0438em 0.0459em 0 #1a1814, 0.0500em 0.0525em 0 #1a1814, 0.0563em 0.0591em 0 #1a1814, 0.0625em 0.0656em 0 #1a1814, 0.0688em 0.0722em 0 #1a1814, 0.0750em 0.0788em 0 #1a1814, 0.0813em 0.0853em 0 #1a1814, 0.0875em 0.0919em 0 #1a1814, 0.0938em 0.0984em 0 #1a1814, 0.1000em 0.1050em 0 #1a1814; filter: url(#aged); }
 .logo-sub { font-size: calc(var(--mark) * .32); margin-top: calc(var(--mark) * -.04); letter-spacing: .06em; }
-.hero-cta { justify-self: center; margin-bottom: calc(28px + env(safe-area-inset-bottom)); min-height: 52px; padding: 0 32px; }
+.cta.hero-cta { justify-self: center; gap: 10px; margin-bottom: calc(30px + env(safe-area-inset-bottom)); min-height: 52px; padding: 0 28px; background: #e3d5ae; color: var(--ink); border: 2px solid var(--ink); border-radius: 999px; box-shadow: 4px 4px 0 var(--ink); font-size: 16px; font-weight: 700; letter-spacing: .01em; transition: transform .15s, box-shadow .15s, background-color .2s; }
+.cta.hero-cta::after { content: '↓'; font-weight: 700; }
+.cta.hero-cta:hover { background: #efe3c2; transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--ink); }
+.cta.hero-cta:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
 .cta, .primary { display: inline-flex; align-items: center; justify-content: center; gap: 16px; min-height: 48px; padding: 0 22px; background: var(--accent); color: var(--on-ink); border: 0; border-radius: 0; font-size: 16px; font-weight: 600; text-decoration: none; transition: background-color .2s; }
 .cta:hover, .primary:hover:not([aria-disabled="true"]):not(:disabled) { background: var(--accent-dark); }
 
