@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { hashPassword } from '../lib/auth.js';
 import { writePrivate } from '../lib/fs-store.js';
-import { ipAllowed, loadAccount, validIpPattern } from '../lib/account.js';
+import { ipAllowed, loadAccount, passwordProblem, validIpPattern } from '../lib/account.js';
+import { resetGuardForTests } from '../lib/guard.js';
 import login from '../api/admin/login.js';
 import account from '../api/admin/account.js';
 import products from '../api/admin/products.js';
@@ -22,6 +23,7 @@ async function setup(extra = {}) {
   for (const key of ['ADMIN_LOGIN', 'ADMIN_PASSWORD_HASH', 'ADMIN_SESSION_SECRET']) delete process.env[key];
   await writePrivate('admin', { login: 'rewear', passwordHash: hashPassword('temp-pass-12345'), sessionSecret: 's'.repeat(64), mustChange: true, allowedIps: [], version: 'v1', ...extra });
   await loadAccount({ fresh: true });
+  resetGuardForTests();
   return dir;
 }
 
@@ -56,12 +58,12 @@ test('temporary password: products are locked until it is changed, then old sess
   assert.equal(weak.code, 400);
 
   const changed = res();
-  await account({ method: 'PUT', headers: { ...json('7.7.7.1'), cookie: oldCookie }, body: { currentPassword: 'temp-pass-12345', login: 'owner', password: 'my-new-long-password' } }, changed);
+  await account({ method: 'PUT', headers: { ...json('7.7.7.1'), cookie: oldCookie }, body: { currentPassword: 'temp-pass-12345', login: 'owner', password: 'velvet-moss-archive-77' } }, changed);
   assert.equal(changed.code, 200);
   const stored = JSON.parse(await readFile(path.join(dir, 'private/admin.json'), 'utf8'));
   assert.equal(stored.login, 'owner');
   assert.equal(stored.mustChange, false);
-  assert.ok(!JSON.stringify(stored).includes('my-new-long-password'));
+  assert.ok(!JSON.stringify(stored).includes('velvet-moss-archive-77'));
 
   const stale = res();
   await products({ method: 'GET', headers: { host: 'site.test', cookie: oldCookie, 'x-forwarded-for': '7.7.7.1' }, query: {} }, stale);
@@ -70,7 +72,7 @@ test('temporary password: products are locked until it is changed, then old sess
   await products({ method: 'GET', headers: { host: 'site.test', cookie: cookieOf(changed), 'x-forwarded-for': '7.7.7.1' }, query: {} }, fresh);
   assert.equal(fresh.code, 200);
   assert.equal((await signIn('7.7.7.1')).code, 401);
-  assert.equal((await signIn('7.7.7.1', 'owner', 'my-new-long-password')).code, 200);
+  assert.equal((await signIn('7.7.7.1', 'owner', 'velvet-moss-archive-77')).code, 200);
 });
 
 test('IP allow-list blocks sign-in and sessions from other addresses and refuses to lock the owner out', async () => {
@@ -97,4 +99,20 @@ test('five wrong passwords block the IP', async () => {
   assert.equal(blocked.code, 429);
   assert.match(blocked.body.error, /мин/);
   assert.equal((await signIn('6.6.6.7')).code, 200);
+});
+
+test('password policy rejects short, predictable and login-based passwords', () => {
+  assert.ok(passwordProblem('short-1A', 'owner'));
+  assert.ok(passwordProblem('owner-velvet-2024', 'owner'));
+  assert.ok(passwordProblem('qwerty-velvet-2024', 'owner'));
+  assert.ok(passwordProblem('aaaaaaaaaaaaaaaa', 'owner'));
+  assert.equal(passwordProblem('velvet-moss-archive-77', 'owner'), '');
+});
+
+test('the throttle survives a restart on disk (STORAGE=fs)', async () => {
+  const dir = await setup({ mustChange: false });
+  for (let i = 0; i < 5; i++) await signIn('4.4.4.4', 'rewear', 'wrong');
+  resetGuardForTests(); // as if the server restarted
+  assert.equal((await signIn('4.4.4.4')).code, 429);
+  assert.ok(JSON.parse(await readFile(path.join(dir, 'private/throttle.json'), 'utf8')).ips['4.4.4.4']);
 });

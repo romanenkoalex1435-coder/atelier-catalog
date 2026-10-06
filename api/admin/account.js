@@ -1,6 +1,6 @@
 // The signed-in owner can see the account and change the login, the password and the IP allow-list.
-import { adminSession, createSession, hashPassword, minutesUntilUnlock, recordFailure, sameOrigin, sessionCookie, tooManyAttempts, verifyPassword, clearFailures } from '../../lib/auth.js';
-import { clientIp, ipAllowed, newSessionSecret, saveAccount, validIpPattern } from '../../lib/account.js';
+import { adminSession, clearFailures, createSession, guardState, hashPassword, recordFailure, sameOrigin, sessionCookie, verifyPassword } from '../../lib/auth.js';
+import { clientIp, ipAllowed, newSessionSecret, passwordProblem, saveAccount, validIpPattern } from '../../lib/account.js';
 
 const view = (account, ip) => ({ login: account.login, mustChange: Boolean(account.mustChange), allowedIps: account.allowedIps || [], ip, updatedAt: account.updatedAt || null });
 
@@ -13,13 +13,14 @@ export default async function handler(req, res) {
   if (req.method === 'GET') return res.status(200).json(view(account, ip));
   if (req.method !== 'PUT') return res.status(405).end();
 
-  if (tooManyAttempts(ip)) return res.status(429).json({ error: `Слишком много неудачных попыток. Попробуйте через ${minutesUntilUnlock(ip)} мин.` });
+  const guard = await guardState(ip, { trusted: true });
+  if (guard.blocked) return res.status(429).json({ error: `Слишком много неудачных попыток. Попробуйте через ${guard.minutes} мин.` });
   const body = req.body || {};
   if (!verifyPassword(body.currentPassword ?? '', account.passwordHash)) {
-    recordFailure(ip);
+    await recordFailure(ip);
     return res.status(400).json({ error: 'Текущий пароль указан неверно.' });
   }
-  clearFailures(ip);
+  await clearFailures(ip);
 
   const next = { ...account };
   const login = String(body.login ?? account.login).trim();
@@ -29,8 +30,8 @@ export default async function handler(req, res) {
   const password = String(body.password ?? '');
   const passwordChanged = Boolean(password);
   if (passwordChanged) {
-    if (password.length < 12) return res.status(400).json({ error: 'Новый пароль: не короче 12 символов.' });
-    if (password.toLowerCase() === login.toLowerCase()) return res.status(400).json({ error: 'Пароль не должен совпадать с логином.' });
+    const problem = passwordProblem(password, login);
+    if (problem) return res.status(400).json({ error: problem });
     if (verifyPassword(password, account.passwordHash)) return res.status(400).json({ error: 'Новый пароль совпадает с текущим.' });
     next.passwordHash = hashPassword(password);
   } else if (account.mustChange) {
