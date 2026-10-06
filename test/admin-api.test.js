@@ -5,7 +5,7 @@ import products from '../api/admin/products.js';
 import { hashPassword } from '../lib/auth.js';
 
 const res = () => ({ code: 200, body: null, headers: {}, setHeader(k, v) { this.headers[k] = v; }, status(c) { this.code = c; return this; }, json(b) { this.body = b; return this; }, end() { return this; } });
-const env = { ADMIN_LOGIN: 'owner', ADMIN_PASSWORD_HASH: hashPassword('a-long-password'), ADMIN_SESSION_SECRET: 's'.repeat(40), GITHUB_TOKEN: 't', GITHUB_REPO: 'o/r' };
+const env = { STORAGE: '', ADMIN_LOGIN: 'owner', ADMIN_PASSWORD_HASH: hashPassword('a-long-password'), ADMIN_SESSION_SECRET: 's'.repeat(40), GITHUB_TOKEN: 't', GITHUB_REPO: 'o/r' };
 const json = { 'content-type': 'application/json', host: 'site.test' };
 
 async function withEnv(fn) {
@@ -28,6 +28,8 @@ test('login rejects wrong credentials and unconfigured server', async () => {
     await login({ method: 'POST', headers: { ...json, 'x-forwarded-for': '8.8.8.8' }, body: { login: 'owner', password: 'nope' } }, r);
     assert.equal(r.code, 401);
     delete process.env.ADMIN_LOGIN;
+    const { loadAccount } = await import('../lib/account.js');
+    await loadAccount({ fresh: true });
     const r2 = res();
     await login({ method: 'POST', headers: json, body: { login: 'owner', password: 'a-long-password' } }, r2);
     assert.equal(r2.code, 503);

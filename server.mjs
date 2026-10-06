@@ -16,6 +16,7 @@ const routes = {
   '/api/admin/login': () => import('./api/admin/login.js'),
   '/api/admin/logout': () => import('./api/admin/logout.js'),
   '/api/admin/products': () => import('./api/admin/products.js'),
+  '/api/admin/account': () => import('./api/admin/account.js'),
   '/api/share': () => import('./api/share.js'),
   '/api/sitemap': () => import('./api/sitemap.js'),
 };
@@ -107,6 +108,8 @@ const server = http.createServer(async (req, res) => {
     if (share) { pathname = '/api/share'; query.id = share[1]; }
     if (pathname === '/sitemap.xml') pathname = '/api/sitemap';
     if (routes[pathname]) {
+      // the client address: behind nginx (TRUST_PROXY=1) from its header, otherwise from the socket, so it cannot be faked
+      if (process.env.TRUST_PROXY !== '1') req.headers['x-forwarded-for'] = req.socket.remoteAddress || '';
       req.query = query;
       req.body = ['POST', 'PUT', 'DELETE'].includes(req.method) ? await readBody(req) : undefined;
       const { default: handler } = await routes[pathname]();
