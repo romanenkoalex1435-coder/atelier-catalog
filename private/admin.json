@@ -1,9 +1,9 @@
 {
-  "login": "rewear",
-  "passwordHash": "scrypt$071e15307423cea1096c628942c24d93$2d3f22f839d3c0c551dcee8e3e703901e6a04ee19911d0fc1aff7914407b93007ba291b288519b0a569790f22458d51e64e27de68a6adaa95307f75e63306021",
-  "sessionSecret": "3a65494ddb26f015b7b315ace23590b151af59ff58f4421cf638e6eb9b90dc93",
-  "mustChange": true,
   "allowedIps": [],
-  "version": "fb07f4ad6d75f7f5",
-  "updatedAt": "2026-10-06T21:10:11.525Z"
+  "mustChange": false,
+  "version": "2d5fd9690c185ab9",
+  "login": "iluha_monesy",
+  "passwordHash": "scrypt$70a2bc35f362ec6d3f374ed97a2eb1f2$62b3a7117dfa2526fd59f4a94d2d3a4a5681f18d768f9652f2bad7286e6e08c75e832593449b2db14955e0f5b983bc1462c8d42385de964913bc43dbe6b5e04c",
+  "sessionSecret": "b5b8662f527cd49c2d4268e106013297036a62628172b36631457aed7ee580e3",
+  "updatedAt": "2026-10-06T22:09:22.013Z"
 }
