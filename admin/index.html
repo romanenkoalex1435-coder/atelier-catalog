@@ -35,11 +35,11 @@
       <p class="fine" id="account-lead"></p>
       <label>Текущий пароль<input name="currentPassword" type="password" autocomplete="current-password" required maxlength="200"></label>
       <label>Логин<input name="login" autocomplete="username" required minlength="3" maxlength="40" pattern="[A-Za-z0-9._-]{3,40}"></label>
-      <label>Новый пароль <span class="hint-inline" id="password-hint">не короче 12 символов</span><input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="200"></label>
+      <label>Новый пароль <span class="hint-inline" id="password-hint">от 12 символов: буквы разного регистра, цифры, знаки</span><input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="200"></label>
       <label>Повторите новый пароль<input name="password2" type="password" autocomplete="new-password" maxlength="200"></label>
       <fieldset class="photos">
         <legend>Защита по IP</legend>
-        <p class="fine">После 5 неверных попыток подряд вход с этого IP блокируется на 15 минут. Ваш IP сейчас: <b id="my-ip">—</b></p>
+        <p class="fine">Перебор пароля заблокирован: после 5 неверных попыток IP закрывается на 15 минут, после 15 за сутки — на 24 часа, каждая ошибка замедляет ответ. Если пароль пытаются подобрать с разных адресов (20 ошибок за 15 минут), вход закрывается для всех, кроме адресов из списка ниже. Ваш IP сейчас: <b id="my-ip">—</b></p>
         <label class="check"><input type="checkbox" id="ip-only"> Пускать в админку только с этих IP</label>
         <div id="ip-box" hidden>
           <textarea name="allowedIps" rows="3" placeholder="По одному в строке: 85.140.12.7 или 85.140.* для диапазона"></textarea>
