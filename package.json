@@ -5,6 +5,6 @@
   "scripts": {
     "test": "node --test",
     "start": "node server.mjs",
-    "check": "node --check app.js && node --check admin/admin.js && node --check admin/cutout.js && node --check api/admin/login.js && node --check api/admin/logout.js && node --check api/admin/products.js && node --check api/share.js && node --check api/sitemap.js && node --check server.mjs && node --check lib/store.js && node --check lib/fs-store.js && node --check lib/public-catalog.js && node --check lib/auth.js && node --check lib/catalog.js && node --check lib/github.js"
+    "check": "node --check app.js && node --check admin/admin.js && node --check admin/cutout.js && node --check api/admin/login.js && node --check api/admin/logout.js && node --check api/admin/products.js && node --check api/admin/account.js && node --check lib/account.js && node --check scripts/reset-admin.mjs && node --check api/share.js && node --check api/sitemap.js && node --check server.mjs && node --check lib/store.js && node --check lib/fs-store.js && node --check lib/public-catalog.js && node --check lib/auth.js && node --check lib/catalog.js && node --check lib/github.js"
   }
 }

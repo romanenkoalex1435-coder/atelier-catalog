@@ -1,4 +1,4 @@
-import { isAdmin, sameOrigin } from '../../lib/auth.js';
+import { adminSession, sameOrigin } from '../../lib/auth.js';
 import { MAX_PHOTOS, PASSPORT_FIELDS, assertId, decodeImage, decodePreview, validateNotes, validateProduct } from '../../lib/catalog.js';
 import { deletePhoto, getCatalog, saveCatalog, savePhoto, savePreview } from '../../lib/store.js';
 
@@ -24,7 +24,9 @@ async function resolvePhotos(list, id, current) {
 
 export default async function handler(req, res) {
   res.setHeader('cache-control', 'no-store');
-  if (!isAdmin(req)) return res.status(401).json({ error: 'Войдите в админ-панель.' });
+  const account = await adminSession(req);
+  if (!account) return res.status(401).json({ error: 'Войдите в админ-панель.' });
+  if (account.mustChange) return res.status(403).json({ error: 'Сначала смените временный пароль.', mustChange: true });
   if (!sameOrigin(req)) return res.status(403).json({ error: 'Запрос отклонён.' });
   try {
     const { sha, products } = await getCatalog();

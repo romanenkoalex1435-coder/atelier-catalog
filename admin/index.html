@@ -15,6 +15,7 @@
     <strong>REWEAR · админ</strong>
     <span class="admin-actions" id="bar-actions" hidden>
       <a class="link" href="/" target="_blank" rel="noopener">Сайт</a>
+      <button class="btn ghost" id="open-account" type="button">Аккаунт</button>
       <button class="btn ghost" id="logout" type="button">Выйти</button>
     </span>
   </header>
@@ -27,6 +28,26 @@
       <label>Логин<input name="login" autocomplete="username" required maxlength="100"></label>
       <label>Пароль<input name="password" type="password" autocomplete="current-password" required maxlength="200"></label>
       <button class="btn" type="submit">Войти</button>
+    </form>
+
+    <form class="card account" id="account-form" hidden autocomplete="off">
+      <h1 id="account-title">Аккаунт</h1>
+      <p class="fine" id="account-lead"></p>
+      <label>Текущий пароль<input name="currentPassword" type="password" autocomplete="current-password" required maxlength="200"></label>
+      <label>Логин<input name="login" autocomplete="username" required minlength="3" maxlength="40" pattern="[A-Za-z0-9._-]{3,40}"></label>
+      <label>Новый пароль <span class="hint-inline" id="password-hint">не короче 12 символов</span><input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="200"></label>
+      <label>Повторите новый пароль<input name="password2" type="password" autocomplete="new-password" maxlength="200"></label>
+      <fieldset class="photos">
+        <legend>Защита по IP</legend>
+        <p class="fine">После 5 неверных попыток подряд вход с этого IP блокируется на 15 минут. Ваш IP сейчас: <b id="my-ip">—</b></p>
+        <label class="check"><input type="checkbox" id="ip-only"> Пускать в админку только с этих IP</label>
+        <div id="ip-box" hidden>
+          <textarea name="allowedIps" rows="3" placeholder="По одному в строке: 85.140.12.7 или 85.140.* для диапазона"></textarea>
+          <div class="row"><button class="btn ghost" type="button" id="add-my-ip">Добавить мой IP</button></div>
+          <p class="fine">Мобильный интернет часто меняет IP: добавьте диапазон (85.140.*) или выключите ограничение, если ходите с телефона. Если доступ потерян, его можно восстановить скриптом scripts/reset-admin.mjs.</p>
+        </div>
+      </fieldset>
+      <div class="row"><button class="btn" type="submit" id="account-save">Сохранить</button><button class="btn ghost" type="button" id="account-cancel">Отмена</button></div>
     </form>
 
     <section id="panel" hidden>

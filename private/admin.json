@@ -1,0 +1,9 @@
+{
+  "login": "rewear",
+  "passwordHash": "scrypt$071e15307423cea1096c628942c24d93$2d3f22f839d3c0c551dcee8e3e703901e6a04ee19911d0fc1aff7914407b93007ba291b288519b0a569790f22458d51e64e27de68a6adaa95307f75e63306021",
+  "sessionSecret": "3a65494ddb26f015b7b315ace23590b151af59ff58f4421cf638e6eb9b90dc93",
+  "mustChange": true,
+  "allowedIps": [],
+  "version": "fb07f4ad6d75f7f5",
+  "updatedAt": "2026-10-06T21:10:11.525Z"
+}

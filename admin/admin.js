@@ -20,18 +20,19 @@ function say(message, error = false) {
 async function api(path, options = {}) {
   const response = await fetch(path, { credentials: 'same-origin', ...options, headers: { 'content-type': 'application/json', ...(options.headers || {}) } });
   const data = await response.json().catch(() => ({}));
-  if (response.status === 401 && path.endsWith('/products')) { showLogin(); throw new Error(''); }
+  if (response.status === 401 && !path.endsWith('/login')) { showLogin(); throw new Error(''); }
+  if (response.status === 403 && data.mustChange) { showAccount(true); throw new Error(''); }
   if (!response.ok) throw new Error(data.error || 'Ошибка запроса.');
   return data;
 }
 
 function showLogin() {
-  panel.hidden = true; barActions.hidden = true; loginForm.hidden = false;
+  panel.hidden = true; barActions.hidden = true; loginForm.hidden = false; $('account-form').hidden = true;
   loginForm.password.value = '';
 }
 
 function showPanel() {
-  loginForm.hidden = true; panel.hidden = false; barActions.hidden = false;
+  loginForm.hidden = true; panel.hidden = false; barActions.hidden = false; $('account-form').hidden = true; $('open-account').hidden = false;
   render();
 }
 
@@ -288,8 +289,9 @@ loginForm.addEventListener('submit', async event => {
   event.preventDefault();
   say('');
   try {
-    await api('/api/admin/login', { method: 'POST', body: JSON.stringify({ login: loginForm.login.value, password: loginForm.password.value }) });
-    await load();
+    const result = await api('/api/admin/login', { method: 'POST', body: JSON.stringify({ login: loginForm.login.value, password: loginForm.password.value }) });
+    loginForm.password.value = '';
+    if (result.mustChange) await showAccount(true); else await load();
   } catch (error) {
     say(error.message, true);
   }
@@ -309,3 +311,62 @@ async function load() {
   }
 }
 load();
+
+/* ---------- account: login, password, IP allow-list ---------- */
+const accountForm = $('account-form');
+let forcedChange = false;
+
+async function showAccount(forced = false) {
+  forcedChange = forced;
+  let info;
+  try { info = await api('/api/admin/account'); } catch (error) { if (error.message) say(error.message, true); return; }
+  loginForm.hidden = true; panel.hidden = true; accountForm.hidden = false;
+  barActions.hidden = false;
+  $('open-account').hidden = forced;
+  $('account-title').textContent = forced ? 'Задайте свой логин и пароль' : 'Аккаунт';
+  $('account-lead').textContent = forced ? 'Вы вошли по временному паролю. Придумайте свой логин и пароль: временный после этого перестанет работать.' : 'Здесь можно сменить логин и пароль и ограничить вход по IP. Для любых изменений нужен текущий пароль. После смены пароля другие устройства выйдут из админки.';
+  $('account-cancel').hidden = forced;
+  accountForm.reset();
+  accountForm.login.value = info.login;
+  accountForm.password.required = forced;
+  $('my-ip').textContent = info.ip;
+  $('ip-only').checked = info.allowedIps.length > 0;
+  accountForm.allowedIps.value = info.allowedIps.join('\n');
+  $('ip-box').hidden = !info.allowedIps.length;
+  say('');
+  accountForm.currentPassword.focus();
+}
+
+$('ip-only').addEventListener('change', () => {
+  $('ip-box').hidden = !$('ip-only').checked;
+  if ($('ip-only').checked && !accountForm.allowedIps.value.trim()) accountForm.allowedIps.value = $('my-ip').textContent;
+});
+$('add-my-ip').addEventListener('click', () => {
+  const ip = $('my-ip').textContent, lines = accountForm.allowedIps.value.split('\n').map(line => line.trim()).filter(Boolean);
+  if (!lines.includes(ip)) lines.push(ip);
+  accountForm.allowedIps.value = lines.join('\n');
+});
+$('open-account').addEventListener('click', () => showAccount(false));
+$('account-cancel').addEventListener('click', () => load());
+
+accountForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  say('');
+  const password = accountForm.password.value;
+  if (password && password !== accountForm.password2.value) return say('Новые пароли не совпадают.', true);
+  if (forcedChange && !password) return say('Задайте новый пароль.', true);
+  const body = { currentPassword: accountForm.currentPassword.value, login: accountForm.login.value.trim(), allowedIps: $('ip-only').checked ? accountForm.allowedIps.value.split('\n').map(line => line.trim()).filter(Boolean) : [] };
+  if (password) body.password = password;
+  const save = $('account-save');
+  save.disabled = true;
+  try {
+    await api('/api/admin/account', { method: 'PUT', body: JSON.stringify(body) });
+    accountForm.reset();
+    await load();
+    say(password ? 'Сохранено. Новый пароль действует, на других устройствах нужно войти заново.' : 'Сохранено.');
+  } catch (error) {
+    if (error.message) say(error.message, true);
+  } finally {
+    save.disabled = false;
+  }
+});
