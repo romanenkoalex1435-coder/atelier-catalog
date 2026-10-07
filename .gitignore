@@ -1,7 +1,7 @@
-.vercel/
 .env*
 !.env.example
 .DS_Store
 node_modules/
-.vercel
-private/throttle.json
+dist-reg/
+private/
+*.tar.gz

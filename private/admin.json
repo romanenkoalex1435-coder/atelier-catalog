@@ -1,9 +1,0 @@
-{
-  "allowedIps": [],
-  "mustChange": false,
-  "version": "2d5fd9690c185ab9",
-  "login": "iluha_monesy",
-  "passwordHash": "scrypt$70a2bc35f362ec6d3f374ed97a2eb1f2$62b3a7117dfa2526fd59f4a94d2d3a4a5681f18d768f9652f2bad7286e6e08c75e832593449b2db14955e0f5b983bc1462c8d42385de964913bc43dbe6b5e04c",
-  "sessionSecret": "b5b8662f527cd49c2d4268e106013297036a62628172b36631457aed7ee580e3",
-  "updatedAt": "2026-10-06T22:09:22.013Z"
-}

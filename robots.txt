@@ -3,4 +3,4 @@ Disallow: /admin/
 Disallow: /api/
 Allow: /
 
-Sitemap: https://atelier-catalog.vercel.app/sitemap.xml
+Sitemap: https://rewearvintage.shop/sitemap.xml
