@@ -198,7 +198,7 @@ const isNew = product => Boolean(product.createdAt) && Date.now() - Date.parse(p
 
 function tileMarkup(product) {
   const status = product.sold ? '<span class="tag sold">Продано</span>' : product.reserved ? '<span class="tag">Бронь</span>' : isNew(product) ? '<span class="tag new">Новое</span>' : '';
-  const count = photosOf(product).length;
+  const count = hasCut(product) ? 1 : photosOf(product).length;
   const size = product.size ? `<p class="tile-size">Размер: ${escapeHtml(product.size)}</p>` : '';
   const cond = product.condition ? `<p class="tile-cond">${escapeHtml(product.condition)}</p>` : '';
   return `<button class="tile" type="button" data-id="${escapeHtml(product.id)}"><div class="tile-image${hasCut(product) ? ' cut' : ''}">${imageMarkup(product)}${status}${count > 1 ? `<span class="count" aria-label="Фото: ${count}">${count} фото</span>` : ''}</div><div class="tile-meta"><h3 class="tile-title">${escapeHtml(product.title)}</h3>${size}<p class="tile-price">${currency(product.price)}</p>${cond}</div></button>`;
@@ -271,19 +271,19 @@ function productView(product) {
     sheet.classList.remove('narrow');
     sheetBody.className = 'sheet-body product';
     const originals = photosOf(product);
-    // the cut-out preview goes first (no rug); the originals on the rug follow and carry the defect pins
+    // with a cut-out preview the sheet shows only it: the originals on the rug stay out of the shop;
+    // without one the originals are the only photos, and they carry the defect pins
     const cut = hasCut(product) ? previewOf(product) : '';
-    const slideList = [...(cut ? [{ src: cut, cut: true }] : []), ...originals.map((src, i) => ({ src, index: i }))];
-    const offset = cut ? 1 : 0;
+    const slideList = cut ? [{ src: cut, cut: true }] : originals.map((src, i) => ({ src, index: i }));
     const defects = (Array.isArray(product.notes) ? product.notes : []).filter(note => note.type === 'flaw');
     const description = !product.description ? '' : `<p class="sheet-desc">${escapeHtml(product.description)}</p>`;
     const rows = [['Категория', product.category], ['Размер', product.size], ['Бренд', product.brand], ['Эпоха', product.era], ['Происхождение', product.origin], ['Состояние', product.condition], ['Замеры, см', product.measures]].filter(([, value]) => value);
     const passport = rows.length ? `<h3 class="block-title">Паспорт вещи</h3><dl class="passport">${rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>` : '';
     const pinsFor = index => defects.map((note, i) => (note.img || 0) === index ? `<button class="pin flaw" type="button" data-note="${i}" style="left:${Number(note.x)}%;top:${Number(note.y)}%" aria-label="Дефект ${i + 1}: ${escapeHtml(note.text)}">${i + 1}</button>` : '').join('');
-    const slides = slideList.length ? slideList.map((slide, n) => `<figure class="slide"><div class="pinbox${slide.cut ? ' cutbox' : ''}"><img src="${escapeHtml(slide.src)}" alt="${escapeHtml(product.title)}${slide.cut ? '' : ', фото на ковре'}, ${n + 1} из ${slideList.length}" data-zoom="${escapeHtml(slide.src)}"${n ? ' loading="lazy"' : ''}>${slide.cut ? '' : pinsFor(slide.index)}</div></figure>`).join('') : `<figure class="slide"><div class="pinbox empty"><span class="placeholder">${hanger}</span></div></figure>`;
+    const slides = slideList.length ? slideList.map((slide, n) => `<figure class="slide"><div class="pinbox${slide.cut ? ' cutbox' : ''}"><img src="${escapeHtml(slide.src)}" alt="${escapeHtml(product.title)}, ${n + 1} из ${slideList.length}" data-zoom="${escapeHtml(slide.src)}"${n ? ' loading="lazy"' : ''}>${slide.cut ? '' : pinsFor(slide.index)}</div></figure>`).join('') : `<figure class="slide"><div class="pinbox empty"><span class="placeholder">${hanger}</span></div></figure>`;
     const dots = slideList.length > 1 ? `<span class="counter" id="counter">1 / ${slideList.length}</span><div class="dots">${slideList.map((_, i) => `<button type="button" class="dot" data-slide="${i}" aria-label="Фото ${i + 1}" aria-current="${i === 0}"></button>`).join('')}</div>` : '';
-    const tools = defects.length ? '<div class="gallery-tools"><button type="button" id="toggle-pins" aria-pressed="false">Показать дефекты</button></div>' : '';
-    const noteList = defects.length ? `<h3 class="block-title">Дефекты</h3><ol class="notes">${defects.map((note, i) => `<li><button class="note flaw" type="button" data-note="${i}" data-img="${(note.img || 0) + offset}"><span>${i + 1}</span><b>${escapeHtml(note.text)}</b></button></li>`).join('')}</ol>` : '';
+    const tools = defects.length && !cut ? '<div class="gallery-tools"><button type="button" id="toggle-pins" aria-pressed="false">Показать дефекты</button></div>' : '';
+    const noteList = defects.length ? `<h3 class="block-title">Дефекты</h3><ol class="notes">${defects.map((note, i) => `<li>${cut ? `<p class="note flaw"><span>${i + 1}</span><b>${escapeHtml(note.text)}</b></p>` : `<button class="note flaw" type="button" data-note="${i}" data-img="${note.img || 0}"><span>${i + 1}</span><b>${escapeHtml(note.text)}</b></button>`}</li>`).join('')}</ol>` : '';
     sheetBody.dataset.product = product.id;
     sheetBody.innerHTML = `<div class="gallery"><div class="slides" id="slides" tabindex="0" aria-label="Фото вещи, листайте вбок">${slides}</div>${dots}${tools}</div><div class="title-row"><h2 id="sheet-title">${escapeHtml(product.title)}</h2><button class="textlink share" type="button" data-share="${escapeHtml(product.id)}">Поделиться</button></div>${description}${passport}${noteList}${relatedMarkup(product)}${buyPanel(product)}`;
     const slidesEl = sheetBody.querySelector('#slides');
@@ -544,9 +544,10 @@ async function init() {
     products = (await response.json()).filter(product => product.active);
     renderToolbar(); renderProducts(); updateCount();
     const channel = /^[A-Za-z0-9_]{5,32}$/.test(config.telegramChannel || '') ? config.telegramChannel : '';
+    // the footer Telegram link leads to the shop channel; without one it falls back to the seller's chat
     const channelLink = document.querySelector('#footer-channel');
-    channelLink.hidden = !channel;
-    if (channel) channelLink.href = `https://t.me/${channel}`;
+    if (channel || sellerTelegram) channelLink.href = `https://t.me/${channel || sellerTelegram}`;
+    channelLink.hidden = !channel && !sellerTelegram;
     setupConsent(config);
     document.querySelectorAll('[data-telegram]').forEach(link => { if (sellerTelegram) link.href = `https://t.me/${sellerTelegram}`; else link.hidden = true; });
     scrollTo(0, 0);

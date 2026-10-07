@@ -1,6 +1,6 @@
 # Промпт для продолжения работы
 
-Проект: витрина винтажной одежды **REWEAR VINTAGE**. Продавец в Telegram: `@iamozwe`. Сначала прочитай `README.md`, `DESIGN_SYSTEM.md` и код.
+Проект: витрина винтажной одежды **REWEAR VINTAGE**. Продавец (заказы) в Telegram: `@yourmanagerozwe`, канал магазина (ссылка в подвале): `@ozwemarket`. Сначала прочитай `README.md`, `DESIGN_SYSTEM.md` и код.
 
 Живой сайт: https://atelier-catalog.vercel.app (Vercel, деплой автоматически с `main`). Репозиторий приватный.
 
