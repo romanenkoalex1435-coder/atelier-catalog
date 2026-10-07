@@ -12,7 +12,7 @@
 .admin label { display: grid; gap: 6px; font-size: 14px; color: var(--steel); }
 .admin input, .admin textarea, .admin select { width: 100%; padding: 11px 12px; font: inherit; font-size: 16px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-s); }
 .admin textarea { resize: vertical; }
-.btn { height: 40px; padding: 0 18px; background: var(--ink); color: var(--on-ink); border: 0; border-radius: 0; font-weight: 500; transition: background-color .2s, transform .1s; }
+.btn { height: 40px; padding: 0 18px; background: var(--ink); color: var(--on-ink); border: 0; border-radius: var(--button-radius); font-weight: 500; transition: background-color .2s, transform .1s; }
 .btn:hover { background: var(--accent); }
 .btn:active { transform: scale(.97); }
 .btn:disabled { opacity: .5; cursor: progress; }
@@ -79,8 +79,8 @@
 .admin-brand { font: 400 25px/1 var(--logo); }
 .admin-brand small { font: 400 12px/1 var(--font); color: var(--steel); }
 .admin .btn { min-height: 48px; height: auto; padding: 10px 16px; font-size: 14px; background: var(--accent); }
-.admin .btn.ghost { background: transparent; }
-.admin .btn.ghost:hover { background: rgba(var(--shade), .06); }
+.admin .btn.ghost { background: var(--surface); border-color: var(--line); }
+.admin .btn.ghost:hover { background: var(--soft-hover); }
 .admin .card { border-radius: 0; background: transparent; padding: 24px 0; border-top: 1px solid var(--line); }
 .admin .editor { max-width: 800px; margin: 0 auto 28px; gap: 18px; }
 .admin input, .admin select, .admin textarea { min-height: 48px; min-width: 0; }
@@ -90,8 +90,9 @@
 .item .row { grid-column: auto; align-items: center; }
 .item-more { position: relative; }
 .admin summary { min-height: 48px; padding: 12px 0; cursor: pointer; color: var(--ink); font-size: 15px; }
-.item-more summary { padding: 12px; }
-.extra-actions { display: grid; gap: 8px; position: absolute; z-index: 4; right: 0; width: 210px; padding: 12px; border: 1px solid var(--line); background: var(--paper); }
+.item-more summary { padding: 12px; border-radius: var(--button-radius); }
+.item-more summary:hover { background: var(--surface); }
+.extra-actions { display: grid; gap: 8px; position: absolute; z-index: 4; right: 0; width: 210px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-m); background: var(--paper); }
 .fold { border-top: 1px solid var(--line); min-width: 0; }
 .fold[open] { display: grid; gap: 14px; }
 .file { position: relative; overflow: hidden; }
@@ -101,7 +102,7 @@
 .editor-actions .row { flex-wrap: nowrap; }
 .editor-actions p { max-width: 45%; }
 .admin .photo-tools .btn { min-width: 44px; min-height: 44px; padding: 8px; }
-.photo-pick { width: 138px; }
+.photo-pick { width: 138px; border-radius: var(--r-s); overflow: hidden; }
 .cut-compare { max-width: 500px; }
 .pin-coordinates { grid-column: 2 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .pin-list li { grid-template-columns: 24px minmax(0, 1fr) auto; }
