@@ -13,7 +13,32 @@ jobs:
         with:
           node-version: 22
       - run: npm run check
-      - run: find php -name '*.php' -exec php -l {} \;
+      - name: Fail on any PHP syntax error
+        run: |
+          for file in php/*.php; do
+            php -l "$file" || exit 1
+          done
+      - name: Verify isolated PHP API and migration
+        env:
+          REWEAR_DATA_DIR: ${{ runner.temp }}/rewear-test-data
+          REWEAR_SITE_URL: https://rewearvintage.shop
+          SITE_ORIGIN: https://rewearvintage.shop
+          BASE_URL: http://127.0.0.1:8173
+          PHP_TEST_LOGIN: stageowner
+          PHP_TEST_PASSWORD: Stage!90374Secure.Test
+          PHP_TEST_THROTTLE: 1
+        run: |
+          mkdir -p "$REWEAR_DATA_DIR"
+          cp -r data images "$REWEAR_DATA_DIR/"
+          printf '%s' '{"login":"stageowner","password":"Stage!90374Secure.Test"}' | php php/init-account.php
+          php -S 127.0.0.1:8173 -t . php/router.php > "$RUNNER_TEMP/rewear-php.log" 2>&1 &
+          task_php_pid=$!
+          trap 'kill "$task_php_pid" || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8173/data/products.json >/dev/null; then break; fi
+            sleep 1
+          done
+          npm test
       - run: npm run build
       - uses: actions/upload-artifact@v4
         with:

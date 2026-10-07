@@ -24,11 +24,14 @@ const scrim = document.querySelector('#scrim');
 const cartCount = document.querySelector('#cart-count');
 const currency = value => new Intl.NumberFormat('ru-RU').format(value) + ' ₽';
 const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+const VINTAGE_NOTICE = 'Все представленные вещи — винтаж. Перед заказом проверьте замеры, состояние и отметки о дефектах.';
+const RETURN_NOTICE = 'Условия возврата зависят от применимого законодательства. По вопросам возврата свяжитесь с продавцом в Telegram.';
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const isDesktop = matchMedia('(min-width: 720px)');
 const hanger = '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M32 22v-3a5 5 0 1 0-5-5"/><path d="M32 22 6 42a3 3 0 0 0 2 5.3h48a3 3 0 0 0 2-5.3z"/></svg>';
 
 let products = [];
+let catalogReady = false;
 let cart = readCart();
 let sellerTelegram = '';
 let view = null;
@@ -172,7 +175,7 @@ const photosOf = product => (Array.isArray(product.images) && product.images.len
 // A hand-made 4:5 preview (product.preview) wins in the grid; otherwise the whole original is shown with object-fit: contain.
 const previewOf = product => (/^\/images\/[a-z0-9./-]+\.(webp|png|jpg)$/.test(product.preview || '') ? product.preview : photosOf(product)[0]);
 
-const hasCut = product => /^\/images\/[a-z0-9./-]+\.webp$/.test(product.preview || '');
+const hasCut = product => /^\/images\/[a-z0-9./-]+\.(?:webp|png)$/.test(product.preview || '');
 function imageMarkup(product) {
   const src = previewOf(product);
   return src ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(product.title)}" loading="lazy" decoding="async">` : `<span class="placeholder">${hanger}</span>`;
@@ -276,7 +279,7 @@ function productView(product) {
     const cut = hasCut(product) ? previewOf(product) : '';
     const slideList = cut ? [{ src: cut, cut: true }] : originals.map((src, i) => ({ src, index: i }));
     const defects = (Array.isArray(product.notes) ? product.notes : []).filter(note => note.type === 'flaw');
-    const description = !product.description ? '' : `<p class="sheet-desc">${escapeHtml(product.description)}</p>`;
+    const description = `<p class="hint">${escapeHtml(VINTAGE_NOTICE)}</p>` + (!product.description ? '' : `<p class="sheet-desc">${escapeHtml(product.description)}</p>`);
     const rows = [['Категория', product.category], ['Размер', product.size], ['Бренд', product.brand], ['Эпоха', product.era], ['Происхождение', product.origin], ['Состояние', product.condition], ['Замеры, см', product.measures]].filter(([, value]) => value);
     const passport = rows.length ? `<h3 class="block-title">Паспорт вещи</h3><dl class="passport">${rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>` : '';
     const pinsFor = index => defects.map((note, i) => (note.img || 0) === index ? `<button class="pin flaw" type="button" data-note="${i}" style="left:${Number(note.x)}%;top:${Number(note.y)}%" aria-label="Дефект ${i + 1}: ${escapeHtml(note.text)}">${i + 1}</button>` : '').join('');
@@ -297,7 +300,15 @@ function productView(product) {
 }
 
 function cartView() {
+  if (!catalogReady) {
+    sheet.classList.add('narrow');
+    sheetBody.className = 'sheet-body';
+    sheetBody.dataset.product = '';
+    sheetBody.innerHTML = '<h2 id="sheet-title">Корзина</h2><p class="hint">Каталог ещё недоступен. Дождитесь загрузки или обновите страницу. Ваш список вещей сохранён.</p>';
+    return;
+  }
   cart = cart.filter(item => byId(item.id) && !byId(item.id).sold && !byId(item.id).reserved);
+  saveCart();
   sheet.classList.add('narrow');
   sheetBody.className = 'sheet-body';
   sheetBody.dataset.product = '';
@@ -311,7 +322,7 @@ function cartView() {
     return `<div class="cart-line"><div class="cart-thumb${hasCut(product) ? ' cut' : ''}">${imageMarkup(product)}</div><div><h3>${escapeHtml(product.title)}</h3>${sub ? `<p class="cart-sub">${escapeHtml(sub)}</p>` : ''}<button class="remove" type="button" data-remove="${escapeHtml(item.id)}">Убрать</button></div><strong>${currency(product.price)}</strong></div>`;
   }).join('');
   const link = sellerTelegram ? `https://t.me/${sellerTelegram}?text=${encodeURIComponent(buildMessage())}` : '#';
-  sheetBody.innerHTML = `<h2 id="sheet-title">Корзина</h2><p class="cart-count">${cart.length} ${plural(cart.length, 'вещь', 'вещи', 'вещей')} · каждая в единственном экземпляре</p>${lines}<div class="total-row"><span>Итого</span><strong>${currency(cartTotal())}</strong></div><div class="buy"><a class="primary wide" id="telegram-order" href="${link}" target="_blank" rel="noopener noreferrer" aria-disabled="${String(!sellerTelegram)}">Оформить в Telegram</a><p class="hint">${sellerTelegram ? 'Откроется чат с готовым списком вещей. Оплату и доставку согласуем лично.' : 'Telegram продавца пока не настроен.'}</p></div>`;
+  sheetBody.innerHTML = `<h2 id="sheet-title">Корзина</h2><p class="cart-count">${cart.length} ${plural(cart.length, 'вещь', 'вещи', 'вещей')} · каждая в единственном экземпляре</p>${lines}<p class="hint">${escapeHtml(VINTAGE_NOTICE)}</p><p class="hint">${escapeHtml(RETURN_NOTICE)}</p><div class="total-row"><span>Итого</span><strong>${currency(cartTotal())}</strong></div><div class="buy"><a class="primary wide" id="telegram-order" href="${link}" target="_blank" rel="noopener noreferrer" aria-disabled="${String(!sellerTelegram)}">Оформить в Telegram</a><p class="hint">${sellerTelegram ? 'Откроется чат с готовым списком вещей. Оплату и доставку согласуем лично.' : 'Telegram продавца пока не настроен.'}</p></div>`;
 }
 
 function buildMessage() {
@@ -444,6 +455,8 @@ const FAQ = [
   ['Как выбрать размер?', 'В паспорте вещи указаны замеры в сантиметрах. Сравните их с вашей любимой вещью, а не ориентируйтесь на размер на бирке: у винтажа он часто отличается от современного.'],
   ['Что такое дефекты на фото?', 'Мы честно отмечаем потёртости, пятна и следы ремонта. Нажмите «Показать дефекты» на фото вещи.'],
   ['Оплата и доставка?', 'Согласуем лично в Telegram.'],
+  ['Вещи винтажные?', VINTAGE_NOTICE],
+  ['Как оформить возврат?', RETURN_NOTICE],
   ['Какие данные вы собираете?', 'Никакие. Сайт только открывает чат Telegram с готовым сообщением.']
 ];
 function faqView() {
@@ -542,6 +555,7 @@ async function init() {
     const response = await fetch('/data/products.json', { cache: 'no-store' });
     if (!response.ok) throw new Error('Каталог недоступен.');
     products = (await response.json()).filter(product => product.active);
+    catalogReady = true;
     renderToolbar(); renderProducts(); updateCount();
     const channel = /^[A-Za-z0-9_]{5,32}$/.test(config.telegramChannel || '') ? config.telegramChannel : '';
     // the footer Telegram link leads to the shop channel; without one it falls back to the seller's chat
@@ -554,7 +568,8 @@ async function init() {
     const selected = byId(new URLSearchParams(location.search).get('product'));
     if (selected) openSheet(productView(selected));
   } catch (error) {
-    grid.innerHTML = `<p class="empty">${escapeHtml(error.message)} Попробуйте обновить страницу.</p>`;
+    const targetGrid = PAGE === 'sold' ? archiveGrid : grid;
+    if (targetGrid) targetGrid.innerHTML = `<p class="empty">${escapeHtml(error.message)} Попробуйте обновить страницу.</p>`;
   }
 }
 init();

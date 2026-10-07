@@ -8,6 +8,14 @@ const MAX_PHOTOS = 8;
 let products = [], editingId = null, photos = [], notes = [], selected = 0;
 let cut = { path: '', data: '', changed: false, pending: null, busy: false };   // transparent preview: saved path, new data URL, or removal; pending = automatic result waiting for a decision
 let autoTried = false;
+let editorGeneration = 0, cutGeneration = 0;
+
+function invalidateEditor() {
+  editorGeneration++;
+  cutGeneration++;
+  cut = { ...cut, busy: false };
+}
+function closeEditor() { invalidateEditor(); editor.hidden = true; }
 
 const photosOf = product => (Array.isArray(product.images) && product.images.length ? product.images : product.image ? [product.image] : []);
 
@@ -27,6 +35,7 @@ async function api(path, options = {}) {
 }
 
 function showLogin() {
+  closeEditor();
   panel.hidden = true; barActions.hidden = true; loginForm.hidden = false; $('account-form').hidden = true;
   loginForm.password.value = '';
 }
@@ -98,7 +107,9 @@ async function mutate(path, method, body) {
 
 /* ---------- editor ---------- */
 function openEditor(product) {
+  invalidateEditor();
   editingId = product?.id ?? null;
+  $('save').disabled = false;
   $('editor-title').textContent = product ? 'Изменить вещь' : 'Новая вещь';
   editor.title.value = product?.title ?? '';
   editor.price.value = product?.price ?? '';
@@ -143,18 +154,22 @@ function renderCut() {
 
 async function runCut() {
   if (cut.busy || !photos.length) return;
+  const generation = editorGeneration, operation = ++cutGeneration;
+  const photo = photos[selected], src = photo.src, kind = $('cut-kind').value;
+  const current = () => generation === editorGeneration && operation === cutGeneration;
+  const currentSource = () => current() && photos[selected] === photo && photo.src === src;
   cut = { ...cut, busy: true, pending: null };
   renderCut();
   try {
-    const result = await cutOut(photos[selected].src, $('cut-kind').value, say2);
+    const result = await cutOut(src, kind, text => { if (currentSource()) say2(text); });
+    if (!currentSource()) return;
     // a clean result is taken at once (still shown next to the original); one with warnings waits for the owner
     if (result.problems.length) { cut = { ...cut, pending: result }; say2('Есть замечания к вырезке: посмотрите на края и решите.'); }
     else { cut = { ...cut, data: result.dataUrl, changed: true, pending: null }; say2('Готово, замечаний нет. Всё равно сравните с оригиналом и нажмите «Сохранить».'); }
   } catch (error) {
-    say2(`Не получилось вырезать: ${error.message || 'ошибка'}. Фото останется на ковре, или загрузите своё превью.`);
+    if (currentSource()) say2(`Не получилось вырезать: ${error.message || 'ошибка'}. Фото останется на ковре, или загрузите своё превью.`);
   } finally {
-    cut = { ...cut, busy: false };
-    renderCut();
+    if (current()) { cut = { ...cut, busy: false }; renderCut(); }
   }
 }
 
@@ -173,10 +188,19 @@ $('cut-input').addEventListener('change', async () => {
   const file = $('cut-input').files[0];
   $('cut-input').value = '';
   if (!file) return;
-  try { cut = { ...cut, data: await toTransparent(file), changed: true, pending: null }; say2('Своё превью загружено.'); renderCut(); }
-  catch { say('Не удалось прочитать превью. Нужен PNG или WebP.', true); }
+  const generation = editorGeneration, operation = ++cutGeneration;
+  const current = () => generation === editorGeneration && operation === cutGeneration;
+  cut = { ...cut, busy: true, pending: null };
+  renderCut();
+  try {
+    const data = await toTransparent(file);
+    if (!current()) return;
+    cut = { ...cut, data, changed: true, pending: null };
+    say2('Своё превью загружено.');
+  } catch { if (current()) say('Не удалось прочитать превью. Нужен PNG или WebP.', true); }
+  finally { if (current()) { cut = { ...cut, busy: false }; renderCut(); } }
 });
-$('cut-remove').addEventListener('click', () => { cut = { path: '', data: '', changed: true, pending: null, busy: false }; say2(''); renderCut(); });
+$('cut-remove').addEventListener('click', () => { cutGeneration++; cut = { path: '', data: '', changed: true, pending: null, busy: false }; say2(''); renderCut(); });
 $('cut-run').addEventListener('click', runCut);
 $('cut-accept').addEventListener('click', () => { cut = { ...cut, data: cut.pending.dataUrl, changed: true, pending: null }; say2('Превью принято. Нажмите «Сохранить».'); renderCut(); });
 $('cut-reject').addEventListener('click', () => { cut = { ...cut, pending: null }; say2('Оставляем фото на ковре (или загрузите своё превью).'); renderCut(); });
@@ -223,11 +247,22 @@ async function toJpeg(file) {
 photoInput.addEventListener('change', async () => {
   const files = [...photoInput.files].slice(0, MAX_PHOTOS - photos.length);
   photoInput.value = '';
+  const generation = editorGeneration, target = photos;
+  const current = () => generation === editorGeneration && photos === target;
+  let firstAdded = null;
   for (const file of files) {
-    try { photos.push({ src: await toJpeg(file) }); }
-    catch { say('Не удалось прочитать одно из фото. Выберите JPEG или PNG.', true); }
+    if (!current()) return;
+    if (photos.length >= MAX_PHOTOS) break;
+    try {
+      const src = await toJpeg(file);
+      if (!current()) return;
+      if (photos.length >= MAX_PHOTOS) break;
+      if (firstAdded === null) firstAdded = photos.length;
+      photos.push({ src });
+    } catch { if (current()) say('Не удалось прочитать одно из фото. Выберите JPEG или PNG.', true); }
   }
-  selected = Math.max(photos.length - files.length, 0);
+  if (!current()) return;
+  if (firstAdded !== null) selected = firstAdded;
   renderPhotos();
   if ($('cut-auto').checked && !autoTried && !cut.data && !cut.path && photos.length) { autoTried = true; selected = 0; renderPhotos(); runCut(); }
 });
@@ -269,6 +304,7 @@ editor.addEventListener('submit', async event => {
   event.preventDefault();
   if (cut.pending) { say('Сначала решите по превью: «Использовать» или «Оставить фото на ковре».', true); return; }
   if (cut.busy) { say('Подождите, идёт вырезка.', true); return; }
+  const generation = editorGeneration;
   const save = $('save');
   save.disabled = true;
   const body = { title: editor.title.value, price: Number(editor.price.value), description: editor.description.value, images: photos.map(photo => photo.src) };
@@ -278,12 +314,11 @@ editor.addEventListener('submit', async event => {
   const ok = editingId
     ? await mutate(`/api/admin/products?id=${editingId}`, 'PUT', body)
     : await mutate('/api/admin/products', 'POST', body);
-  save.disabled = false;
-  if (ok) editor.hidden = true;
+  if (generation === editorGeneration) { save.disabled = false; if (ok) closeEditor(); }
 });
 
 $('add').addEventListener('click', () => openEditor(null));
-$('cancel').addEventListener('click', () => { editor.hidden = true; });
+$('cancel').addEventListener('click', closeEditor);
 
 loginForm.addEventListener('submit', async event => {
   event.preventDefault();
@@ -298,6 +333,7 @@ loginForm.addEventListener('submit', async event => {
 });
 
 $('logout').addEventListener('click', async () => {
+  closeEditor();
   await api('/api/admin/logout', { method: 'POST' }).catch(() => {});
   products = []; editor.hidden = true; say(''); showLogin();
 });
@@ -317,6 +353,7 @@ const accountForm = $('account-form');
 let forcedChange = false;
 
 async function showAccount(forced = false) {
+  closeEditor();
   forcedChange = forced;
   let info;
   try { info = await api('/api/admin/account'); } catch (error) { if (error.message) say(error.message, true); return; }
