@@ -6,13 +6,13 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#eee8dc">
   <title>Админ-панель — REWEAR VINTAGE</title>
-  <link rel="stylesheet" href="/styles.css">
-  <link rel="stylesheet" href="/admin/admin.css">
-  <script src="/admin/admin.js" type="module"></script>
+  <link rel="stylesheet" href="/styles.css?v=20261008-audit">
+  <link rel="stylesheet" href="/admin/admin.css?v=20261008-audit">
+  <script src="/admin/admin.js?v=20261008-audit" type="module"></script>
 </head>
 <body class="admin">
   <header class="admin-bar">
-    <strong>REWEAR · админ</strong>
+    <strong class="admin-brand">Rewear <small>админ</small></strong>
     <span class="admin-actions" id="bar-actions" hidden>
       <a class="link" href="/" target="_blank" rel="noopener">Сайт</a>
       <button class="btn ghost" id="open-account" type="button">Аккаунт</button>
@@ -37,16 +37,18 @@
       <label>Логин<input name="login" autocomplete="username" required minlength="3" maxlength="40" pattern="[A-Za-z0-9._-]{3,40}"></label>
       <label>Новый пароль <span class="hint-inline" id="password-hint">от 12 символов: буквы разного регистра, цифры, знаки</span><input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="200"></label>
       <label>Повторите новый пароль<input name="password2" type="password" autocomplete="new-password" maxlength="200"></label>
+      <details class="fold"><summary>Дополнительная защита по IP</summary>
       <fieldset class="photos">
-        <legend>Защита по IP</legend>
-        <p class="fine">Перебор пароля заблокирован: после 5 неверных попыток IP закрывается на 15 минут, после 15 за сутки — на 24 часа, каждая ошибка замедляет ответ. Если пароль пытаются подобрать с разных адресов (20 ошибок за 15 минут), вход закрывается для всех, кроме адресов из списка ниже. Ваш IP сейчас: <b id="my-ip">—</b></p>
+        <legend>Разрешённые адреса</legend>
+        <p class="fine">Вход защищён от перебора пароля. Ваш IP сейчас: <b id="my-ip">—</b></p>
         <label class="check"><input type="checkbox" id="ip-only"> Пускать в админку только с этих IP</label>
         <div id="ip-box" hidden>
-          <textarea name="allowedIps" rows="3" placeholder="По одному в строке: 85.140.12.7 или 85.140.* для диапазона"></textarea>
+          <textarea name="allowedIps" rows="3" aria-label="Разрешённые IP-адреса" placeholder="По одному в строке: 85.140.12.7 или 85.140.* для диапазона"></textarea>
           <div class="row"><button class="btn ghost" type="button" id="add-my-ip">Добавить мой IP</button></div>
-          <p class="fine">Мобильный интернет часто меняет IP: добавьте диапазон (85.140.*) или выключите ограничение, если ходите с телефона. Если доступ потерян, его можно восстановить скриптом scripts/reset-admin.mjs.</p>
+          <p class="fine">Мобильный интернет меняет IP. Если не уверены, оставьте ограничение выключенным. При потере доступа восстановите его через панель хостинга по <a href="https://github.com/romanenkoalex1435-coder/atelier-catalog/blob/main/php/README.md" target="_blank" rel="noopener">инструкции проекта</a>.</p>
         </div>
       </fieldset>
+      </details>
       <div class="row"><button class="btn" type="submit" id="account-save">Сохранить</button><button class="btn ghost" type="button" id="account-cancel">Отмена</button></div>
     </form>
 
@@ -57,27 +59,33 @@
       </div>
       <form class="card editor" id="editor" hidden>
         <h2 id="editor-title">Новая вещь</h2>
+        <div class="editor-actions"><p class="fine" id="editor-state" role="status"></p><div class="row">
+          <button class="btn" type="submit" id="save">Сохранить</button>
+          <button class="btn ghost" type="button" id="cancel">Отмена</button>
+        </div></div>
         <label>Название<input name="title" required maxlength="100"></label>
         <label>Цена, ₽<input name="price" type="number" inputmode="numeric" min="1" step="1" required></label>
-        <label>Описание<textarea name="description" rows="4" maxlength="1000"></textarea></label>
+        <fieldset class="photos">
+          <legend>Фото (до 8): первое показывается на обложке</legend>
+          <ol class="photo-strip" id="photo-strip"></ol>
+          <label class="btn ghost file">Добавить фото<input type="file" id="photo-input" aria-label="Добавить фотографии вещи" accept="image/*" multiple></label>
+        </fieldset>
         <div class="pair">
           <label>Категория<select name="category"><option value="">Не выбрана</option><option>Верхняя одежда</option><option>Штаны</option><option>Обувь</option><option>Аксессуары</option></select></label>
           <label>Размер<input name="size" maxlength="20" placeholder="L (если известен)"></label>
         </div>
+        <label>Состояние<input name="condition" maxlength="60" placeholder="Отличное"></label>
+        <label>Замеры, см<input name="measures" maxlength="200" placeholder="Плечи 52 · Рукав 62 · Длина 70"></label>
+        <details class="fold"><summary>Описание и паспорт вещи</summary>
+        <label>Описание<textarea name="description" rows="4" maxlength="1000"></textarea></label>
         <label>Бренд<input name="brand" maxlength="60" placeholder="Ralph Lauren"></label>
         <div class="pair">
           <label>Эпоха<input name="era" maxlength="40" placeholder="1990-е"></label>
           <label>Происхождение<input name="origin" maxlength="60" placeholder="Япония"></label>
         </div>
-        <label>Состояние<input name="condition" maxlength="60" placeholder="Отличное"></label>
-        <label>Замеры, см<input name="measures" maxlength="200" placeholder="Плечи 52 · Рукав 62 · Длина 70"></label>
-        <fieldset class="photos">
-          <legend>Фото (до 8): первое показывается на обложке</legend>
-          <ol class="photo-strip" id="photo-strip"></ol>
-          <label class="btn ghost file">Добавить фото<input type="file" id="photo-input" accept="image/*" multiple hidden></label>
-        </fieldset>
+        </details>
         <fieldset class="photos" id="cut-box">
-          <legend>Превью для каталога: вещь без ковра</legend>
+          <legend>Обложка каталога</legend>
           <label class="check"><input type="checkbox" id="cut-auto" checked> Вырезать автоматически, когда добавлено первое фото</label>
           <div class="cut-compare" id="cut-compare" hidden>
             <figure><div class="cut-pane"><img id="cut-orig" alt="Оригинал"></div><figcaption>Оригинал</figcaption></figure>
@@ -90,20 +98,19 @@
             <button class="btn" type="button" id="cut-run">Вырезать автоматически</button>
             <button class="btn" type="button" id="cut-accept" hidden>Использовать это превью</button>
             <button class="btn ghost" type="button" id="cut-reject" hidden>Оставить фото на ковре</button>
-            <label class="btn ghost file" id="cut-add">Загрузить своё превью<input type="file" id="cut-input" accept="image/png,image/webp" hidden></label>
+            <label class="btn ghost file" id="cut-add">Загрузить своё превью<input type="file" id="cut-input" aria-label="Загрузить своё превью" accept="image/png,image/webp"></label>
             <button class="btn ghost danger" type="button" id="cut-remove" hidden>Убрать превью</button>
           </div>
-          <p class="fine">Вырезка идёт прямо в вашем браузере, фото никуда не отправляются. Первый раз скачивается модель (≈45 МБ), потом она берётся из памяти браузера. Всегда сравните результат с оригиналом: если потерялась деталь или остался кусок ковра, выберите «Оставить фото на ковре» или загрузите своё превью.</p>
+          <details class="fold"><summary>Как это работает</summary><p class="fine">Вырезка идёт прямо в вашем браузере, фото никуда не отправляются. Первый раз скачивается модель (≈45 МБ), потом она берётся из памяти браузера. Всегда сравните результат с оригиналом: если потерялась деталь или остался кусок ковра, выберите «Оставить фото на ковре» или загрузите своё превью.</p></details>
         </fieldset>
-        <div id="pin-section" hidden>
-          <p class="fine">Нажмите на фото, чтобы отметить <b>дефект</b> (пятно, потёртость, дыру). Подпишите каждый. Если у вещи есть вырезанное превью, на сайте показывается только оно, а дефекты идут списком под фото. Без превью сайт показывает оригиналы, и дефекты видны метками по кнопке «Показать дефекты».</p>
+        <details class="fold" id="pin-section" hidden><summary>Дефекты и отметки</summary>
+          <p class="fine">Добавьте отметку кнопкой или нажмите на фото. Подпишите каждый дефект.</p>
+          <button class="btn ghost" type="button" id="pin-add">Добавить дефект в центре фото</button>
+          <details><summary>Как показываются дефекты</summary><p class="fine">Нажмите на фото, чтобы отметить <b>дефект</b> (пятно, потёртость, дыру). Подпишите каждый. Если у вещи есть вырезанное превью, на сайте показывается только оно, а дефекты идут списком под фото. Без превью сайт показывает оригиналы, и дефекты видны метками по кнопке «Показать дефекты».</p></details>
           <div class="stage" id="stage"><img class="preview" id="preview" alt="Выбранное фото"><span id="stage-pins"></span></div>
           <ol class="pin-list" id="pin-list"></ol>
-        </div>
-        <div class="row">
-          <button class="btn" type="submit" id="save">Сохранить</button>
-          <button class="btn ghost" type="button" id="cancel">Отмена</button>
-        </div>
+        </details>
+
       </form>
       <ul class="list" id="list"></ul>
       <p class="fine">После сохранения изменения сразу появятся на сайте.</p>

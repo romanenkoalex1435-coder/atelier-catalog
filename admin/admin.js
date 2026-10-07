@@ -9,13 +9,36 @@ let products = [], editingId = null, photos = [], notes = [], selected = 0;
 let cut = { path: '', data: '', changed: false, pending: null, busy: false };   // transparent preview: saved path, new data URL, or removal; pending = automatic result waiting for a decision
 let autoTried = false;
 let editorGeneration = 0, cutGeneration = 0;
+let uploads = 0, mutating = false, saving = false, baseline = '', renderVersion = 0;
+const saveDisabled = new Map();
+function snapshot() {
+  return JSON.stringify({ fields: ['title', 'price', 'description', ...PASSPORT].map(name => editor[name].value), photos: photos.map(p => p.src), notes: notes.map(n => [n.x, n.y, n.text, photos.indexOf(n.photo)]), preview: cut.data || cut.path, changed: cut.changed });
+}
+function dirty() { return !editor.hidden && (uploads > 0 || cut.busy || !!cut.pending || snapshot() !== baseline); }
+function editorState() {
+  $('save').disabled = uploads > 0 || cut.busy || !!cut.pending || saving || mutating;
+  $('cancel').disabled = saving;
+  $('cut-run').disabled = cut.busy || saving || !photos.length;
+  $('photo-input').disabled = uploads > 0 || saving;
+  for (const control of editor.querySelectorAll?.('input, textarea, select, button') || []) {
+    if (['save', 'cancel', 'photo-input', 'cut-run'].includes(control.id)) continue;
+    if (saving) { if (!saveDisabled.has(control)) saveDisabled.set(control, control.disabled); control.disabled = true; }
+    else if (saveDisabled.has(control)) { control.disabled = saveDisabled.get(control); saveDisabled.delete(control); }
+  }
+  $('editor-state').textContent = saving ? 'Сохраняем…' : uploads ? 'Загружаем фото…' : cut.busy ? 'Обрабатываем обложку…' : cut.pending ? 'Проверьте обложку' : dirty() ? 'Есть несохранённые изменения' : '';
+}
+function leaveEditor(message = 'Изменения не сохранены. Закрыть редактор?') { return !saving && (!dirty() || confirm(message)); }
+editor.addEventListener('input', editorState);
+editor.addEventListener('change', editorState);
+if (typeof window !== 'undefined') window.addEventListener('beforeunload', event => { if (dirty() || saving) { event.preventDefault(); event.returnValue = ''; } });
 
 function invalidateEditor() {
+  uploads = 0;
   editorGeneration++;
   cutGeneration++;
   cut = { ...cut, busy: false };
 }
-function closeEditor() { invalidateEditor(); editor.hidden = true; }
+function closeEditor() { invalidateEditor(); editor.hidden = true; baseline = ""; }
 
 const photosOf = product => (Array.isArray(product.images) && product.images.length ? product.images : product.image ? [product.image] : []);
 
@@ -60,6 +83,7 @@ function statusOf(product) {
 }
 
 function render() {
+  const version = ++renderVersion;
   list.replaceChildren();
   if (!products.length) {
     const empty = document.createElement('li');
@@ -79,34 +103,46 @@ function render() {
     meta.textContent = `${product.price.toLocaleString('ru-RU')} ₽ · ${statusOf(product)} · фото: ${photosOf(product).length}`;
     text.append(title, meta);
     const row = document.createElement('div'); row.className = 'row';
+    const guarded = (action, replacingEditor = false) => () => {
+      const message = replacingEditor ? 'Изменения не сохранены. Закрыть редактор?' : 'В редакторе есть несохранённые изменения. Выполнить действие списка? Редактор останется открытым.';
+      if (!mutating && !saving && version === renderVersion && leaveEditor(message)) action();
+    };
     const put = body => mutate(`/api/admin/products?id=${product.id}`, 'PUT', body);
-    row.append(
-      button('Изменить', () => openEditor(product)),
-      button(product.reserved ? 'Снять бронь' : 'Бронь', () => put({ reserved: !product.reserved })),
-      button(product.sold ? 'Вернуть в продажу' : 'Продано', () => put({ sold: !product.sold })),
-      button(product.active ? 'Скрыть' : 'Показать', () => put({ active: !product.active })),
-      button('Удалить', () => { if (confirm(`Удалить «${product.title}» навсегда?`)) mutate(`/api/admin/products?id=${product.id}`, 'DELETE'); }, 'danger')
+    const edit = button('Изменить', guarded(() => openEditor(product), true)); edit.disabled = mutating;
+    const menu = document.createElement('details'); menu.className = 'item-more';
+    const summary = document.createElement('summary'); summary.textContent = 'Ещё';
+    const actions = document.createElement('div'); actions.className = 'extra-actions';
+    actions.append(
+      button(product.reserved ? 'Снять бронь' : 'Бронь', guarded(() => put({ reserved: !product.reserved }))),
+      button(product.sold ? 'Вернуть в продажу' : 'Продано', guarded(() => put({ sold: !product.sold }))),
+      button(product.active ? 'Скрыть' : 'Показать', guarded(() => put({ active: !product.active }))),
+      button('Удалить', guarded(() => { if (confirm(`Удалить «${product.title}» навсегда?`)) mutate(`/api/admin/products?id=${product.id}`, 'DELETE'); }), 'danger')
     );
+    for (const control of actions.children || []) control.disabled = mutating;
+    menu.append(summary, actions); row.append(edit, menu);
     item.append(thumb, text, row);
     list.append(item);
   }
 }
 
 async function mutate(path, method, body) {
-  say('');
+  if (mutating) return false;
+  mutating = true; render(); editorState();
+  say('Сохраняем…');
   try {
     products = (await api(path, { method, body: body && JSON.stringify(body) })).products;
     render();
-    say('Сохранено. Сайт обновится примерно через минуту.');
+    say('Сохранено.');
     return true;
   } catch (error) {
     if (error.message) say(error.message, true);
     return false;
-  }
+  } finally { mutating = false; render(); editorState(); }
 }
 
 /* ---------- editor ---------- */
 function openEditor(product) {
+  if (mutating || saving) return;
   invalidateEditor();
   editingId = product?.id ?? null;
   $('save').disabled = false;
@@ -126,8 +162,10 @@ function openEditor(product) {
   renderCut();
   renderPhotos();
   editor.hidden = false;
-  editor.title.focus();
-  editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  baseline = snapshot(); editorState();
+  editor.title.focus({ preventScroll: true });
+  const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  editor.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
 }
 
 function say2(text) { const el = $('cut-status'); el.hidden = !text; el.textContent = text || ''; }
@@ -143,13 +181,14 @@ function renderCut() {
   $('cut-problems').hidden = !problems.length;
   $('cut-problems').replaceChildren(...problems.map(text => Object.assign(document.createElement('li'), { textContent: text })));
   $('cut-run').hidden = Boolean(cut.pending);
-  $('cut-run').disabled = cut.busy || !photos.length;
+  $('cut-run').disabled = cut.busy || saving || !photos.length;
   $('cut-run').textContent = cut.busy ? 'Вырезаем…' : (cut.data || cut.path ? 'Вырезать заново' : 'Вырезать автоматически');
   $('cut-accept').hidden = !cut.pending;
   $('cut-accept').textContent = problems.length ? 'Всё равно использовать' : 'Использовать это превью';
   $('cut-reject').hidden = !cut.pending;
   $('cut-remove').hidden = !(cut.data || cut.path) || Boolean(cut.pending);
   $('cut-add').hidden = Boolean(cut.pending);
+  editorState();
 }
 
 async function runCut() {
@@ -232,6 +271,7 @@ function renderPhotos() {
   if (typeof renderCut === 'function') renderCut();
   if (photos.length) preview.src = photos[selected].src;
   renderNotes();
+  editorState();
 }
 
 // Shrink to max 1600px JPEG in the browser: keeps requests small and the repo light.
@@ -249,7 +289,10 @@ photoInput.addEventListener('change', async () => {
   photoInput.value = '';
   const generation = editorGeneration, target = photos;
   const current = () => generation === editorGeneration && photos === target;
+  if (!files.length) return;
+  uploads++; editorState();
   let firstAdded = null;
+  try {
   for (const file of files) {
     if (!current()) return;
     if (photos.length >= MAX_PHOTOS) break;
@@ -265,6 +308,7 @@ photoInput.addEventListener('change', async () => {
   if (firstAdded !== null) selected = firstAdded;
   renderPhotos();
   if ($('cut-auto').checked && !autoTried && !cut.data && !cut.path && photos.length) { autoTried = true; selected = 0; renderPhotos(); runCut(); }
+  } finally { if (current()) { uploads--; editorState(); } }
 });
 
 function renderNotes() {
@@ -282,31 +326,47 @@ function renderNotes() {
     const input = document.createElement('input');
     input.value = note.text; input.maxLength = 80; input.placeholder = 'Что за дефект? Например: пятно у манжеты';
     input.setAttribute('aria-label', `Подпись точки ${i + 1} (фото ${photos.indexOf(note.photo) + 1})`);
-    input.addEventListener('input', () => { note.text = input.value; });
-    const del = button('×', () => { notes.splice(i, 1); renderNotes(); });
+    input.addEventListener('input', () => { note.text = input.value; editorState(); });
+    const del = button('×', () => { notes.splice(i, 1); renderNotes(); editorState(); });
     del.setAttribute('aria-label', 'Убрать точку');
     row.append(num, input, del);
     const where = document.createElement('small'); where.textContent = `фото ${photos.indexOf(note.photo) + 1}`;
     row.append(where);
+    const coordinates = document.createElement('div'); coordinates.className = 'pin-coordinates';
+    for (const [key, title] of [['x', 'По горизонтали, %'], ['y', 'По вертикали, %']]) {
+      const label = document.createElement('label'); label.textContent = title;
+      const position = document.createElement('input'); position.type = 'number'; position.min = 0; position.max = 100; position.step = 'any'; position.value = note[key];
+      position.addEventListener('input', () => { note[key] = Math.max(0, Math.min(100, Number(position.value))); renderPinPositions(); editorState(); });
+      label.append(position); coordinates.append(label);
+    }
+    row.append(coordinates);
     return row;
   }));
 }
 
+function renderPinPositions() { const pins = stagePins.children || []; let index = 0; for (const note of notes) if (note.photo === photos[selected]) { if (pins[index]) { pins[index].style.left = `${note.x}%`; pins[index].style.top = `${note.y}%`; } index++; } }
+function addNote(x, y) {
+  if (saving) return;
+  if (!photos.length) return;
+  if (notes.length >= 12) return say('Не больше 12 точек.', true);
+  notes.push({ x, y, text: '', type: 'flaw', photo: photos[selected] });
+  renderNotes(); editorState(); pinList.querySelector('li:last-child input')?.focus();
+}
+$('pin-add').addEventListener('click', () => addNote(50, 50));
 preview.addEventListener('click', event => {
   if (notes.length >= 12) return say('Не больше 12 точек.', true);
   const box = preview.getBoundingClientRect();
-  notes.push({ x: Math.round((event.clientX - box.left) / box.width * 1000) / 10, y: Math.round((event.clientY - box.top) / box.height * 1000) / 10, text: '', type: 'flaw', photo: photos[selected] });
-  renderNotes();
-  pinList.querySelector('li:last-child input')?.focus();
+  addNote(Math.round((event.clientX - box.left) / box.width * 1000) / 10, Math.round((event.clientY - box.top) / box.height * 1000) / 10);
 });
 
 editor.addEventListener('submit', async event => {
   event.preventDefault();
+  if (uploads || saving || mutating) { say('Подождите, идёт загрузка или сохранение.', true); return; }
   if (cut.pending) { say('Сначала решите по превью: «Использовать» или «Оставить фото на ковре».', true); return; }
   if (cut.busy) { say('Подождите, идёт вырезка.', true); return; }
   const generation = editorGeneration;
   const save = $('save');
-  save.disabled = true;
+  saving = true; editorState();
   const body = { title: editor.title.value, price: Number(editor.price.value), description: editor.description.value, images: photos.map(photo => photo.src) };
   for (const name of PASSPORT) body[name] = editor[name].value;
   if (cut.changed) body.preview = cut.data;   // '' removes the preview
@@ -314,11 +374,12 @@ editor.addEventListener('submit', async event => {
   const ok = editingId
     ? await mutate(`/api/admin/products?id=${editingId}`, 'PUT', body)
     : await mutate('/api/admin/products', 'POST', body);
-  if (generation === editorGeneration) { save.disabled = false; if (ok) closeEditor(); }
+  saving = false;
+  if (generation === editorGeneration) { if (ok) closeEditor(); editorState(); }
 });
 
-$('add').addEventListener('click', () => openEditor(null));
-$('cancel').addEventListener('click', closeEditor);
+$('add').addEventListener('click', () => { if (leaveEditor()) openEditor(null); });
+$('cancel').addEventListener('click', () => { if (leaveEditor()) closeEditor(); });
 
 loginForm.addEventListener('submit', async event => {
   event.preventDefault();
@@ -333,14 +394,19 @@ loginForm.addEventListener('submit', async event => {
 });
 
 $('logout').addEventListener('click', async () => {
+  if (mutating || !leaveEditor()) return;
   closeEditor();
   await api('/api/admin/logout', { method: 'POST' }).catch(() => {});
   products = []; editor.hidden = true; say(''); showLogin();
 });
 
 async function load() {
+  if (mutating || saving) return;
+  const version = renderVersion;
   try {
-    products = (await api('/api/admin/products')).products;
+    const result = await api('/api/admin/products');
+    if (mutating || saving || version !== renderVersion) return;
+    products = result.products;
     showPanel();
   } catch (error) {
     if (error.message) { showPanel(); say(error.message, true); }
@@ -353,6 +419,7 @@ const accountForm = $('account-form');
 let forcedChange = false;
 
 async function showAccount(forced = false) {
+  if (!forced && (mutating || !leaveEditor())) return;
   closeEditor();
   forcedChange = forced;
   let info;
@@ -361,7 +428,7 @@ async function showAccount(forced = false) {
   barActions.hidden = false;
   $('open-account').hidden = forced;
   $('account-title').textContent = forced ? 'Задайте свой логин и пароль' : 'Аккаунт';
-  $('account-lead').textContent = forced ? 'Вы вошли по временному паролю. Придумайте свой логин и пароль: временный после этого перестанет работать.' : 'Здесь можно сменить логин и пароль и ограничить вход по IP. Для любых изменений нужен текущий пароль. После смены пароля другие устройства выйдут из админки.';
+  $('account-lead').textContent = forced ? 'Вы вошли по временному паролю. Придумайте свой логин и пароль: временный после этого перестанет работать.' : 'Для изменений нужен текущий пароль. Новый пароль завершит вход на других устройствах.';
   $('account-cancel').hidden = forced;
   accountForm.reset();
   accountForm.login.value = info.login;

@@ -82,15 +82,16 @@ function rw_json(mixed $data, int $status = 200): never {
     http_response_code($status); header('Content-Type: application/json; charset=utf-8');
     echo json_encode($data, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR); exit;
 }
-function rw_body(): array {
+function rw_body(int $maxBytes = 36_000_000): array {
     $length = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
-    if ($length > 36_000_000) throw new RWError(413, 'Фото: запрос слишком большой.');
-    $raw = file_get_contents('php://input', false, null, 0, 36_000_001);
-    if ($raw === false || strlen($raw) > 36_000_000) throw new RWError(413, 'Фото: запрос слишком большой.');
+    if ($length > $maxBytes) throw new RWError(413, 'Запрос слишком большой.');
+    $raw = file_get_contents('php://input', false, null, 0, $maxBytes + 1);
+    if ($raw === false || strlen($raw) > $maxBytes) throw new RWError(413, 'Запрос слишком большой.');
     if ($raw === '') return [];
-    try { $object = json_decode($raw, false, 64, JSON_THROW_ON_ERROR); } catch (JsonException) { throw new RWError(400, 'Неверный JSON.'); }
-    if (!$object instanceof stdClass) throw new RWError(400, 'Неверный JSON: нужен объект.');
-    return json_decode($raw, true, 64, JSON_THROW_ON_ERROR);
+    try { $body = json_decode($raw, true, 64, JSON_THROW_ON_ERROR); } catch (JsonException) { throw new RWError(400, 'Неверный JSON.'); }
+    // Valid JSON starting with { has an object root; associative decoding keeps nested field contracts.
+    if (!str_starts_with(ltrim($raw, " \t\r\n"), '{')) throw new RWError(400, 'Неверный JSON: нужен объект.');
+    return $body;
 }
 function rw_same_origin(): void {
     if (isset($_SERVER['HTTP_ORIGIN']) && $_SERVER['HTTP_ORIGIN'] !== rw_origin()) throw new RWError(403, 'Запрос отклонён.');
@@ -314,10 +315,11 @@ function rw_api(string $route): never {
     header('Cache-Control: no-store'); rw_same_origin(); $method=$_SERVER['REQUEST_METHOD'];
     if ($route==='login') {
         if ($method!=='POST') throw new RWError(405,'Метод не поддерживается.');
-        $body=rw_body(); $a=rw_account(); if (!$a) throw new RWError(503,'Вход ещё не настроен. Настройте приватный аккаунт на сервере.');
+        $a=rw_account(); if (!$a) throw new RWError(503,'Вход ещё не настроен. Настройте приватный аккаунт на сервере.');
         $ip=rw_ip(); $trusted=!empty($a['allowedIps']) && rw_ip_allowed($a,$ip); $guard=rw_guard($ip,'state',$trusted);
         if ($guard['blocked']) throw new RWError(429,'Слишком много неверных попыток. Попробуйте через '.$guard['minutes'].' мин.');
         if (!rw_ip_allowed($a,$ip)) { rw_guard($ip,'failure'); throw new RWError(403,'Вход с вашего IP ('.$ip.') запрещён настройками безопасности.'); }
+        $body=rw_body(16_384);
         if ($guard['delay']) usleep($guard['delay']*1000);
         $result=rw_lock('account',function()use($body,$ip){
             $a=rw_account(); if (!$a) throw new RWError(503,'Вход ещё не настроен.');
@@ -343,8 +345,9 @@ function rw_api(string $route): never {
         if ($route==='products') { if ($a['mustChange']) throw new RWError(403,'Сначала смените временный пароль.',['mustChange'=>true]); return rw_products($method,in_array($method,['POST','PUT','DELETE'],true)?rw_body():[]); }
         if ($method==='GET') return rw_account_view($a);
         if ($method!=='PUT') throw new RWError(405,'Метод не поддерживается.');
-        $body=rw_body(); $ip=rw_ip(); $guard=rw_guard($ip,'state',true);
+        $ip=rw_ip(); $guard=rw_guard($ip,'state',true);
         if ($guard['blocked']) throw new RWError(429,'Слишком много неудачных попыток. Попробуйте через '.$guard['minutes'].' мин.');
+        $body=rw_body(16_384);
         if (!rw_verify_password($body['currentPassword']??'',$a['passwordHash'])) { rw_guard($ip,'failure'); throw new RWError(400,'Текущий пароль указан неверно.'); }
         rw_guard($ip,'clear'); $login=rw_text($body['login']??$a['login']);
         if (!preg_match('/^[A-Za-z0-9._-]{3,40}$/D',$login)) throw new RWError(400,'Логин: от 3 до 40 символов, латиница, цифры, точка, дефис, подчёркивание.');

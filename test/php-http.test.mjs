@@ -10,9 +10,12 @@ const login = process.env.PHP_TEST_LOGIN;
 const password = process.env.PHP_TEST_PASSWORD;
 let cookie = '';
 async function req(path, method = 'GET', body, headers = {}) {
+  return reqRaw(path, method, body === undefined ? undefined : JSON.stringify(body), headers);
+}
+async function reqRaw(path, method, body, headers = {}) {
   const r = await fetch(new URL(path, base), { method, redirect: 'manual', headers: {
     'content-type': 'application/json', origin, ...(cookie ? { cookie } : {}), ...headers,
-  }, body: body === undefined ? undefined : JSON.stringify(body) });
+  }, body });
   const raw = await r.text(); let data; try { data = JSON.parse(raw); } catch { data = raw; }
   return { status: r.status, headers: r.headers, data };
 }
@@ -28,7 +31,16 @@ test('PHP HTTP auth, catalog, account and security contracts', { skip: !base }, 
   assert.equal((await req('/api/admin/products')).status, 401);
   assert.equal((await req('/api/admin/login', 'POST', { login, password }, { origin: 'https://evil.example' })).status, 403);
   assert.equal((await req('/api/admin/login', 'POST', { login, password }, { origin: origin.replace('https:', 'http:') })).status, 403);
-  const signed = await req('/api/admin/login', 'POST', { login, password });
+  const oversized = { login, password, padding: 'x'.repeat(16_384) };
+  const rejectedLogin = await req('/api/admin/login', 'POST', oversized);
+  assert.equal(rejectedLogin.status, 413);
+  assert.match(rejectedLogin.data.error, /слишком большой/);
+  for (const raw of ['[]', 'null', '{broken']) {
+    assert.equal((await reqRaw('/api/admin/login', 'POST', raw)).status, 400);
+  }
+  const loginJson = JSON.stringify({ login, password });
+  assert.ok(Buffer.byteLength(loginJson) <= 16_384);
+  const signed = await reqRaw('/api/admin/login', 'POST', loginJson + ' '.repeat(16_384 - Buffer.byteLength(loginJson)));
   assert.equal(signed.status, 200, JSON.stringify(signed.data));
   const header = signed.headers.get('set-cookie');
   for (const part of ['HttpOnly', 'Secure', 'SameSite=Strict', 'Path=/api/admin']) assert.ok(header.includes(part));
@@ -36,6 +48,12 @@ test('PHP HTTP auth, catalog, account and security contracts', { skip: !base }, 
   const initialCookie = cookie;
   assert.equal((await req('/api/admin/products')).status, 200);
   assert.equal((await req('/api/admin/account')).data.login, login);
+  const rejectedAccount = await req('/api/admin/account', 'PUT', { currentPassword: password, padding: 'x'.repeat(16_384) });
+  assert.equal(rejectedAccount.status, 413);
+  assert.match(rejectedAccount.data.error, /слишком большой/);
+  for (const raw of ['[]', 'null', '{broken']) {
+    assert.equal((await reqRaw('/api/admin/account', 'PUT', raw)).status, 400);
+  }
   assert.equal((await req('/api/admin/account', 'PUT', { currentPassword: password, allowedIps: ['bad-address'] })).status, 400);
   assert.equal((await req('/api/admin/account', 'PUT', { currentPassword: password, allowedIps: ['192.0.2.240'] })).status, 400);
   assert.equal((await req('/api/admin/products', 'POST', { title: 'test', price: 1.5 })).status, 400);
@@ -45,7 +63,7 @@ test('PHP HTTP auth, catalog, account and security contracts', { skip: !base }, 
   const image = 'data:image/jpeg;base64,' + jpeg.toString('base64');
   const preview = 'data:image/webp;base64,' + readFileSync(new URL('../images/preview/demo-01.webp', import.meta.url)).toString('base64');
   const title = 'PHP staging check ' + Date.now();
-  const created = await req('/api/admin/products', 'POST', { title, price: 2190, description: 'Проверка', category: 'Аксессуары', images: [image], preview, notes: [{ x: 10, y: 20, text: 'Деталь', img: 0 }] });
+  const created = await req('/api/admin/products', 'POST', { title, price: 2190, description: 'Проверка', category: 'Аксессуары', padding: 'x'.repeat(16_384), images: [image], preview, notes: [{ x: 10, y: 20, text: 'Деталь', img: 0 }] });
   assert.equal(created.status, 200, JSON.stringify(created.data));
   const product = created.data.products.find(p => p.title === title); assert.ok(product);
   try {
@@ -87,9 +105,16 @@ test('PHP HTTP auth, catalog, account and security contracts', { skip: !base }, 
 test('persistent per-IP throttle blocks the sixth incorrect login', { skip: !base || process.env.PHP_TEST_THROTTLE !== '1' }, async () => {
   // Run last, only against isolated staging: this intentionally locks the staging client for 15 minutes.
   cookie = '';
+  const signed = await req('/api/admin/login', 'POST', { login, password });
+  assert.equal(signed.status, 200);
+  cookie = signed.headers.get('set-cookie').split(';')[0];
   for (let i = 0; i < 5; i++) {
     const r = await req('/api/admin/login', 'POST', { login, password: 'incorrect-PHP-test-password' });
     assert.equal(r.status, 401, JSON.stringify(r.data));
   }
   assert.equal((await req('/api/admin/login', 'POST', { login, password })).status, 429);
+  for (const raw of ['[]', '{broken', JSON.stringify({ padding: 'x'.repeat(16_384) })]) {
+    assert.equal((await reqRaw('/api/admin/login', 'POST', raw)).status, 429);
+    assert.equal((await reqRaw('/api/admin/account', 'PUT', raw)).status, 429);
+  }
 });

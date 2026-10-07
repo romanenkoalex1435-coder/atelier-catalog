@@ -15,8 +15,8 @@
   <link rel="icon" href="/favicon.png" type="image/png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="preload" href="/fonts/caprasimo-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/styles.css">
-  <script src="/app.js" type="module"></script>
+  <link rel="stylesheet" href="/styles.css?v=20261008-audit">
+  <script src="/app.js?v=20261008-audit" type="module"></script>
 </head>
 <body>
   <!-- worn print: speckle holes in the logotype, like an old screen print -->
@@ -44,7 +44,7 @@
     </section>
 
     <section class="catalog" id="catalog" aria-labelledby="catalog-title">
-      <div class="section-head"><h2 id="catalog-title">Каталог</h2><p class="section-meta" id="catalog-count"></p></div>
+      <div class="section-head"><h2 id="catalog-title">Каталог</h2><p class="section-meta" id="catalog-count" role="status" aria-live="polite"></p></div>
       <p class="hint">Все представленные вещи — винтаж и возврату не подлежат. Перед заказом проверьте замеры, состояние и отметки о дефектах.</p>
       <div class="toolbar" id="toolbar" hidden></div>
       <div class="product-grid" id="product-grid" aria-live="polite"><p class="loading">Загружаем каталог…</p></div>
@@ -82,7 +82,7 @@
 
   <div class="zoom" id="zoom" role="dialog" aria-modal="true" aria-label="Фото в полном размере" hidden>
     <button class="icon-button" id="zoom-close" type="button" aria-label="Закрыть фото">×</button>
-    <div class="zoom-scroll" id="zoom-scroll"><img id="zoom-img" alt=""></div>
+    <div class="zoom-scroll" id="zoom-scroll"><button id="zoom-toggle" class="zoom-toggle" type="button" aria-label="Приблизить фото" aria-pressed="false"><img id="zoom-img" alt=""></button></div>
     <p class="zoom-hint">Нажмите на фото, чтобы приблизить</p>
   </div>
 </body>

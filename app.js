@@ -16,7 +16,6 @@ document.addEventListener('click', event => {
 const PAGE = document.body.dataset.page || 'home';
 const grid = document.querySelector('#product-grid');
 const archiveGrid = document.querySelector('#archive-grid');
-const grids = [grid, archiveGrid];
 const sheet = document.querySelector('#sheet');
 const sheetBody = document.querySelector('#sheet-body');
 const sheetHead = document.querySelector('#sheet-head');
@@ -34,7 +33,6 @@ let products = [];
 let catalogReady = false;
 let cart = readCart();
 let sellerTelegram = '';
-let view = null;
 let previousFocus;
 
 function readCart() {
@@ -101,33 +99,95 @@ function settle(target, velocity = 0, damping = 1, done) {
   stopAnim = spring(pos, target, velocity, { response: .42, damping }, setPos, done);
 }
 
-function openSheet(render) {
-  view = render;
+const focusableIn = root => [...root.querySelectorAll('button:not(:disabled), a[href]:not([aria-disabled="true"]), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex="-1"])')].filter(el => !el.hidden && !el.closest('[hidden]') && el.getClientRects().length > 0);
+function containFocus(root, event) {
+  const items = focusableIn(root), first = items[0], last = items.at(-1);
+  if (!first) { event.preventDefault(); root.focus(); return; }
+  if (!root.contains(document.activeElement) || (event.shiftKey && document.activeElement === first) || (!event.shiftKey && document.activeElement === last)) {
+    event.preventDefault(); (event.shiftKey ? last : first).focus();
+  }
+}
+const backgroundInert = new Map();
+function syncModalBackground() {
+  const active = sheetOpen || !zoom.hidden;
+  for (const child of document.body.children) {
+    if (child === sheet || child === scrim || child === zoom || child.tagName === 'SCRIPT') continue;
+    if (active) { if (!backgroundInert.has(child)) backgroundInert.set(child, child.inert); child.inert = true; }
+    else if (backgroundInert.has(child)) { child.inert = backgroundInert.get(child); backgroundInert.delete(child); }
+  }
+  sheet.inert = !zoom.hidden;
+  document.body.style.overflow = active ? 'hidden' : '';
+}
+let sheetGeneration = 0, sheetRenderer, zoomSource, pendingSheetRenderer, historyClosing = false;
+const modalLayer = () => history.state?.rewearModal || 0;
+function pushLayer(layer) {
+  history.pushState({ ...history.state, rewearModal: layer }, '', location.href);
+}
+function requestLayerClose() {
+  if (historyClosing) return;
+  if (modalLayer()) { historyClosing = true; history.back(); }
+  else if (!zoom.hidden) hideZoom();
+  else hideSheet();
+}
+function openSheet(render, fromHistory = false) {
+  if (historyClosing && !fromHistory) { pendingSheetRenderer = render; return; }
+  const opening = !sheetOpen;
+  if (opening && !fromHistory) {
+    // Keep an incoming product link visible while open; Back returns to the same page.
+    const incoming = location.href, base = new URL(incoming);
+    base.searchParams.delete('product');
+    history.replaceState({ ...history.state, rewearModal: 0 }, '', base.href);
+    history.pushState({ ...history.state, rewearModal: 1 }, '', incoming);
+  }
+  if (opening && sheet.hidden) previousFocus = document.activeElement;
+  ++sheetGeneration;
+  stopAnim?.();
+  sheetRenderer = render;
   render();
   sheetBody.classList.remove('enter'); void sheetBody.offsetWidth; sheetBody.classList.add('enter');
   clearTimeout(openSheet.t); openSheet.t = setTimeout(() => sheetBody.classList.remove('enter'), 1000);
-  if (!sheetOpen) {
-    previousFocus = document.activeElement;
-    sheet.hidden = false; scrim.hidden = false;
-    sheet.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
-    const start = reduceMotion.matches ? 0 : sheetSize();
-    setPos(start);
-    if (reduceMotion.matches) { sheet.style.opacity = '0'; requestAnimationFrame(() => { sheet.style.opacity = '1'; scrim.style.opacity = '1'; }); }
-    sheetOpen = true;
-    settle(0);
-    sheet.querySelector('#sheet-close').focus({ preventScroll: true });
-  }
+  sheet.hidden = false; scrim.hidden = false;
+  sheet.setAttribute('aria-hidden', 'false');
+  sheet.style.opacity = '1';
+  sheetOpen = true;
+  syncModalBackground();
+  if (opening) setPos(reduceMotion.matches ? 0 : sheetSize());
+  settle(0);
+  const title = sheetBody.querySelector('#sheet-title');
+  if (title) title.tabIndex = -1;
+  (opening ? sheet.querySelector('#sheet-close') : title || sheet.querySelector('#sheet-close')).focus({ preventScroll: true });
 }
-
 function closeSheet(velocity = 0) {
   if (!sheetOpen) return;
-  sheetOpen = false;
-  document.body.style.overflow = '';
-  const finish = () => { onSheetClosed(); sheet.hidden = true; scrim.hidden = true; sheet.setAttribute('aria-hidden', 'true'); if (new URL(location).searchParams.has('product')) history.replaceState(null, '', location.pathname); previousFocus?.focus?.({ preventScroll: true }); };
-  if (reduceMotion.matches) { sheet.style.opacity = '0'; setTimeout(finish, 200); return; }
-  settle(sheetSize(), velocity, 1, finish);
+  closeSheet.velocity = velocity;
+  requestLayerClose();
 }
+function hideSheet() {
+  if (!sheetOpen) return;
+  sheetOpen = false;
+  const generation = ++sheetGeneration;
+  const finish = () => {
+    if (generation !== sheetGeneration || sheetOpen) return;
+    sheet.hidden = true; scrim.hidden = true; sheet.setAttribute('aria-hidden', 'true');
+    syncModalBackground(); onSheetClosed();
+    if (previousFocus?.isConnected && !previousFocus.closest('[inert]')) previousFocus.focus({ preventScroll: true });
+  };
+  if (reduceMotion.matches) { sheet.style.opacity = '0'; setTimeout(finish, 200); return; }
+  settle(sheetSize(), closeSheet.velocity || 0, 1, finish);
+  closeSheet.velocity = 0;
+}
+window.addEventListener('popstate', () => {
+  historyClosing = false;
+  const layer = modalLayer();
+  if (layer < 2 && !zoom.hidden) hideZoom();
+  if (layer < 1) hideSheet();
+  else if (!sheetOpen && sheetRenderer) openSheet(sheetRenderer, true);
+  if (layer === 2 && zoom.hidden && zoomSource) openZoom(...zoomSource, true);
+  if (pendingSheetRenderer) {
+    const render = pendingSheetRenderer; pendingSheetRenderer = null;
+    openSheet(render);
+  }
+});
 
 /* drag to dismiss on mobile: 1:1 tracking, momentum projection, velocity hand-off */
 let drag = null;
@@ -158,15 +218,14 @@ sheetHead.addEventListener('pointercancel', endDrag);
 scrim.addEventListener('click', () => closeSheet());
 document.querySelector('#sheet-close').addEventListener('click', () => closeSheet());
 document.addEventListener('keydown', event => {
-  if (!zoom.hidden) { if (event.key === 'Escape') closeZoom(); return; }
-  if (!sheetOpen) return;
-  if (event.key === 'Escape') closeSheet();
-  if (event.key === 'Tab') {
-    const focusable = [...sheet.querySelectorAll('button:not(:disabled), a[href]:not([aria-disabled="true"])')];
-    const first = focusable[0], last = focusable.at(-1);
-    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-  }
+  const root = !zoom.hidden ? zoom : sheetOpen ? sheet : null;
+  if (!root) return;
+  if (event.key === 'Escape') { event.preventDefault(); requestLayerClose(); }
+  if (event.key === 'Tab') containFocus(root, event);
+});
+document.addEventListener('focusin', event => {
+  const root = !zoom.hidden ? zoom : sheetOpen ? sheet : null;
+  if (root && !root.contains(event.target)) focusableIn(root)[0]?.focus({ preventScroll: true });
 });
 isDesktop.addEventListener('change', () => { if (sheetOpen) setPos(0); });
 
@@ -217,6 +276,8 @@ function visibleProducts() {
 // Only groups that can actually narrow the list (2+ different values) are shown, so four items get a one-line toolbar.
 function renderToolbar() {
   const toolbar = document.querySelector('#toolbar');
+  const focused = document.activeElement;
+  const restore = toolbar?.contains(focused) ? { id: focused.id, group: focused.dataset.filter, value: focused.dataset.value } : null;
   if (!toolbar) return;
   const live = products.filter(product => !product.sold);
   toolbar.hidden = live.length < 2;
@@ -231,6 +292,10 @@ function renderToolbar() {
   const panel = filtersOpen && groups.length ? `<div class="filter-panel" id="filter-panel">${groups.map(({ group, title, values, present }) => `<div class="filter-group"><h3>${title}</h3><div class="chips" role="group" aria-label="${title}">${values.map(value => `<button class="chip" type="button" data-filter="${group}" data-value="${escapeHtml(value)}"${present.has(value) || filters[group] === value ? '' : ' disabled'} aria-pressed="${String(filters[group] === value)}">${escapeHtml(labelOf(group, value))}</button>`).join('')}</div></div>`).join('')}${active ? '<button class="textlink" type="button" id="reset-filters">Сбросить фильтры</button>' : ''}</div>` : '';
   toolbar.innerHTML = `<div class="toolbar-row">${groups.length ? `<button class="tool" type="button" id="toggle-filters" aria-expanded="${String(filtersOpen)}" aria-controls="filter-panel">Фильтры${active ? `<span class="n">${active}</span>` : ''}</button>` : '<span></span>'}<label class="sort"><select id="sort" aria-label="Сортировка"><option value="new">Сначала новые</option><option value="asc">Сначала дешевле</option><option value="desc">Сначала дороже</option></select></label></div>${panel}`;
   toolbar.querySelector('#sort').value = filters.sort;
+  if (restore) {
+    const control = restore.group ? [...toolbar.querySelectorAll('[data-filter]')].find(el => el.dataset.filter === restore.group && el.dataset.value === restore.value) : toolbar.querySelector('#' + restore.id);
+    (control || toolbar.querySelector('#toggle-filters'))?.focus({ preventScroll: true });
+  }
 }
 
 function renderProducts() {
@@ -283,7 +348,7 @@ function productView(product) {
     const rows = [['Категория', product.category], ['Размер', product.size], ['Бренд', product.brand], ['Эпоха', product.era], ['Происхождение', product.origin], ['Состояние', product.condition], ['Замеры, см', product.measures]].filter(([, value]) => value);
     const passport = rows.length ? `<h3 class="block-title">Паспорт вещи</h3><dl class="passport">${rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>` : '';
     const pinsFor = index => defects.map((note, i) => (note.img || 0) === index ? `<button class="pin flaw" type="button" data-note="${i}" style="left:${Number(note.x)}%;top:${Number(note.y)}%" aria-label="Дефект ${i + 1}: ${escapeHtml(note.text)}">${i + 1}</button>` : '').join('');
-    const slides = slideList.length ? slideList.map((slide, n) => `<figure class="slide"><div class="pinbox${slide.cut ? ' cutbox' : ''}"><img src="${escapeHtml(slide.src)}" alt="${escapeHtml(product.title)}, ${n + 1} из ${slideList.length}" data-zoom="${escapeHtml(slide.src)}"${n ? ' loading="lazy"' : ''}>${slide.cut ? '' : pinsFor(slide.index)}</div></figure>`).join('') : `<figure class="slide"><div class="pinbox empty"><span class="placeholder">${hanger}</span></div></figure>`;
+    const slides = slideList.length ? slideList.map((slide, n) => `<figure class="slide"><div class="pinbox${slide.cut ? ' cutbox' : ''}"><button class="photo-open" type="button" data-zoom="${escapeHtml(slide.src)}" aria-label="Открыть фото ${n + 1}: ${escapeHtml(product.title)}"><img src="${escapeHtml(slide.src)}" alt="${escapeHtml(product.title)}, ${n + 1} из ${slideList.length}"${n ? ' loading="lazy"' : ''}></button>${slide.cut ? '' : pinsFor(slide.index)}</div></figure>`).join('') : `<figure class="slide"><div class="pinbox empty"><span class="placeholder">${hanger}</span></div></figure>`;
     const dots = slideList.length > 1 ? `<span class="counter" id="counter">1 / ${slideList.length}</span><div class="dots">${slideList.map((_, i) => `<button type="button" class="dot" data-slide="${i}" aria-label="Фото ${i + 1}" aria-current="${i === 0}"></button>`).join('')}</div>` : '';
     const tools = defects.length && !cut ? '<div class="gallery-tools"><button type="button" id="toggle-pins" aria-pressed="false">Показать дефекты</button></div>' : '';
     const noteList = defects.length ? `<h3 class="block-title">Дефекты</h3><ol class="notes">${defects.map((note, i) => `<li>${cut ? `<p class="note flaw"><span>${i + 1}</span><b>${escapeHtml(note.text)}</b></p>` : `<button class="note flaw" type="button" data-note="${i}" data-img="${note.img || 0}"><span>${i + 1}</span><b>${escapeHtml(note.text)}</b></button>`}</li>`).join('')}</ol>` : '';
@@ -335,21 +400,37 @@ function buildMessage() {
 
 /* ---------- photo zoom (opens the original) ---------- */
 const zoom = document.querySelector('#zoom'), zoomScroll = document.querySelector('#zoom-scroll'), zoomImg = document.querySelector('#zoom-img');
-function openZoom(src, alt) {
+let zoomFocus;
+function openZoom(src, alt, fromHistory = false) {
+  zoomFocus = document.activeElement;
+  zoomSource = [src, alt];
+  if (!fromHistory) pushLayer(2);
   zoomImg.src = src; zoomImg.alt = alt || '';
   zoomScroll.classList.remove('zoomed');
+  zoomToggle.setAttribute('aria-pressed', 'false');
+  zoomToggle.setAttribute('aria-label', 'Приблизить фото');
   zoom.hidden = false;
+  syncModalBackground();
   zoom.querySelector('#zoom-close').focus({ preventScroll: true });
 }
-function closeZoom() { zoom.hidden = true; zoomImg.removeAttribute('src'); }
+function hideZoom() {
+  zoom.hidden = true; zoomImg.removeAttribute('src'); syncModalBackground();
+  if (zoomFocus?.isConnected) zoomFocus.focus({ preventScroll: true });
+}
+function closeZoom() { requestLayerClose(); }
 zoom.querySelector('#zoom-close').addEventListener('click', closeZoom);
-zoomImg.addEventListener('click', event => {
+const zoomToggle = document.querySelector('#zoom-toggle');
+zoomToggle.addEventListener('click', event => {
   const zoomed = zoomScroll.classList.toggle('zoomed');
+  zoomToggle.setAttribute('aria-pressed', String(zoomed));
+  zoomToggle.setAttribute('aria-label', zoomed ? 'Уменьшить фото' : 'Приблизить фото');
   if (zoomed) {
     const box = zoomImg.getBoundingClientRect();
+    const x = event.detail ? (event.clientX - box.left) / (box.width || 1) : .5;
+    const y = event.detail ? (event.clientY - box.top) / (box.height || 1) : .5;
     requestAnimationFrame(() => {
-      zoomScroll.scrollLeft = Math.max(0, (zoomImg.offsetWidth - zoomScroll.clientWidth) * ((event.clientX - box.left) / (box.width || 1)));
-      zoomScroll.scrollTop = Math.max(0, (zoomImg.offsetHeight - zoomScroll.clientHeight) * ((event.clientY - box.top) / (box.height || 1)));
+      zoomScroll.scrollLeft = Math.max(0, (zoomImg.offsetWidth - zoomScroll.clientWidth) * x);
+      zoomScroll.scrollTop = Math.max(0, (zoomImg.offsetHeight - zoomScroll.clientHeight) * y);
     });
   }
 });
@@ -423,7 +504,7 @@ sheetBody.addEventListener('click', event => {
     return;
   }
   const photo = event.target.closest('[data-zoom]');
-  if (photo) { openZoom(photo.dataset.zoom, photo.alt); return; }
+  if (photo) { openZoom(photo.dataset.zoom, photo.querySelector('img')?.alt); return; }
   if (event.target.closest('#add')) {
     const id = sheetBody.dataset.product;
     if (!cart.some(item => item.id === id)) cart.push({ id });
@@ -439,7 +520,10 @@ sheetBody.addEventListener('click', event => {
   if (remove) {
     cart = cart.filter(item => item.id !== remove.dataset.remove);
     saveCart();
+    const index = [...sheetBody.querySelectorAll('[data-remove]')].indexOf(remove);
     cartView();
+    const remaining = [...sheetBody.querySelectorAll('[data-remove]')];
+    (remaining[Math.min(index, remaining.length - 1)] || sheetBody.querySelector('#to-catalog'))?.focus({ preventScroll: true });
     return;
   }
   const order = event.target.closest('#telegram-order');
@@ -457,7 +541,7 @@ const FAQ = [
   ['Оплата и доставка?', 'Согласуем лично в Telegram.'],
   ['Вещи винтажные?', VINTAGE_NOTICE],
   ['Можно вернуть вещь?', RETURN_NOTICE],
-  ['Какие данные вы собираете?', 'Никакие. Сайт только открывает чат Telegram с готовым сообщением.']
+  ['Какие данные вы собираете?', 'Корзина и выбор аналитики сохраняются локально в вашем браузере. При оформлении список выбранных вещей передаётся в Telegram. Яндекс Метрика загружается только при настроенном счётчике и вашем согласии; она собирает статистику посещений. Изменить согласие можно по ссылке «Cookie».']
 ];
 function faqView() {
   sheet.classList.add('narrow');

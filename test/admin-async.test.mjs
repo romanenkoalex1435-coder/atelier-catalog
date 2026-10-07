@@ -8,11 +8,11 @@ function deferred() {
   const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
   return { promise, resolve, reject };
 }
-function harness() {
-  const elements = new Map(), cuts = [], bitmaps = [];
+function harness({ confirm = () => true } = {}) {
+  const elements = new Map(), cuts = [], bitmaps = [], requests = [];
   function node() {
-    return { hidden: false, value: '', checked: false, disabled: false, files: [], style: {}, listeners: {},
-      classList: { toggle() {} }, append() {}, replaceChildren() {}, setAttribute() {}, focus() {}, scrollIntoView() {}, reset() {},
+    return { hidden: false, value: '', checked: false, disabled: false, files: [], style: {}, listeners: {}, children: [],
+      classList: { toggle() {} }, append(...items) { this.children.push(...items); }, replaceChildren(...items) { this.children = items; }, setAttribute() {}, focus() {}, scrollIntoView() {}, reset() {},
       querySelector() { return null; }, closest() { return this; },
       addEventListener(name, callback) { this.listeners[name] = callback; },
     };
@@ -34,13 +34,15 @@ function harness() {
     kindForCategory: () => 'clothing',
     cutOut(src, kind, progress) { const d = deferred(); cuts.push({ ...d, src, kind, progress }); return d.promise; },
     createImageBitmap(file) { const d = deferred(); bitmaps.push({ ...d, file }); return d.promise; },
+    confirm,
+    fetch(path, options) { const d = deferred(); requests.push({ ...d, path, options }); return d.promise; },
     console,
   });
   const source = readFileSync(new URL('../admin/admin.js', import.meta.url), 'utf8')
     .replace(/^import[^\n]+\n/, '')
     .replace(/^load\(\);$/m, '');
-  vm.runInContext(source + '\n globalThis.admin = { openEditor, runCut, state: () => ({ cut, photos, selected }) };', context);
-  return { admin: context.admin, elements, element, cuts, bitmaps };
+  vm.runInContext(source + '\n globalThis.admin = { openEditor, runCut, mutate, dirty, render, seed: value => { products = value; render(); }, state: () => ({ cut, photos, selected }) };', context);
+  return { admin: context.admin, elements, element, cuts, bitmaps, requests };
 }
 const product = id => ({ id, title: id, price: 100, images: ['/images/' + id + '.jpg'], preview: '/images/preview/' + id + '.webp', notes: [] });
 const result = tag => ({ dataUrl: 'data:image/webp;base64,' + tag, problems: [] });
@@ -121,4 +123,112 @@ test('a current cut with warnings still waits for acceptance', async () => {
   h.element('cut-accept').listeners.click();
   assert.equal(h.admin.state().cut.data, result('current').dataUrl);
   assert.equal(h.admin.state().cut.pending, null);
+});
+
+for (const pendingIndex of [0, 1]) test(`save waits for JPEG ${pendingIndex + 1} in selected batch`, async () => {
+  const h = harness(); h.admin.openEditor(null);
+  h.element('editor').title.value = 'Shirt'; h.element('editor').price.value = '100';
+  h.element('photo-input').files = [{ name: 'first.jpg' }, { name: 'second.jpg' }];
+  const upload = h.element('photo-input').listeners.change();
+  if (pendingIndex) { h.bitmaps[0].resolve(bitmap('first')); await new Promise(resolve => setImmediate(resolve)); }
+  h.element('editor').listeners.submit({ preventDefault() {} });
+  assert.equal(h.requests.length, 0, 'no request may omit a selected photo');
+  assert.equal(h.element('save').disabled, true);
+  h.bitmaps[pendingIndex].resolve(bitmap(pendingIndex ? 'second' : 'first'));
+  if (!pendingIndex) { await new Promise(resolve => setImmediate(resolve)); h.bitmaps[1].resolve(bitmap('second')); }
+  await upload;
+  assert.equal(h.element('save').disabled, false);
+  const save = h.element('editor').listeners.submit({ preventDefault() {} });
+  assert.deepEqual(JSON.parse(h.requests[0].options.body).images, ['data:image/jpeg;base64,first', 'data:image/jpeg;base64,second']);
+  h.requests[0].resolve({ ok: true, status: 200, json: async () => ({ products: [] }) }); await save;
+});
+
+test('catalog mutation excludes overlapping stale actions and permits the next action after completion', async () => {
+  const h = harness();
+  const first = h.admin.mutate('/api/admin/products?id=a', 'PUT', { reserved: true });
+  const overlapPromise = h.admin.mutate('/api/admin/products?id=a', 'PUT', { sold: true });
+  assert.equal(h.requests.length, 1);
+  assert.equal(await overlapPromise, false);
+  assert.equal(h.requests.length, 1);
+  h.requests[0].resolve({ ok: true, status: 200, json: async () => ({ products: [] }) }); await first;
+  const next = h.admin.mutate('/api/admin/products?id=a', 'PUT', { sold: true });
+  assert.equal(h.requests.length, 2);
+  h.requests[1].resolve({ ok: true, status: 200, json: async () => ({ products: [] }) }); await next;
+});
+
+test('a retained button from an old catalog snapshot cannot revert current status', async () => {
+  const h = harness(); h.admin.seed([{ ...product('a'), active: true, reserved: false }]);
+  const oldReserve = h.element('list').children[0].children[2].children[1].children[1].children[0];
+  oldReserve.listeners.click();
+  assert.equal(h.requests.length, 1);
+  oldReserve.listeners.click();
+  assert.equal(h.requests.length, 1, 'double click cannot send a second mutation');
+  h.requests[0].resolve({ ok: true, status: 200, json: async () => ({ products: [{ ...product('a'), active: true, reserved: true }] }) });
+  await new Promise(resolve => setImmediate(resolve));
+  oldReserve.listeners.click();
+  assert.equal(h.requests.length, 1, 'stale controls remain inert after completion');
+  const currentReserve = h.element('list').children[0].children[2].children[1].children[1].children[0];
+  currentReserve.listeners.click();
+  assert.equal(JSON.parse(h.requests[1].options.body).reserved, false);
+  h.requests[1].resolve({ ok: true, status: 200, json: async () => ({ products: [] }) });
+  await new Promise(resolve => setImmediate(resolve));
+});
+
+test('dirty state tracks edits and approved cancel closes editor', () => {
+  const h = harness(); h.admin.openEditor(product('a'));
+  assert.equal(h.admin.dirty(), false);
+  h.element('editor').title.value = 'Changed';
+  assert.equal(h.admin.dirty(), true);
+  h.element('cancel').listeners.click();
+  assert.equal(h.element('editor').hidden, true);
+});
+
+test('cancel preserves unsaved editor when discard is declined', () => {
+  const h = harness({ confirm: () => false }); h.admin.openEditor(product('a'));
+  h.element('editor').title.value = 'Changed';
+  h.element('cancel').listeners.click();
+  assert.equal(h.element('editor').hidden, false);
+  assert.equal(h.element('editor').title.value, 'Changed');
+});
+
+test('JPEG failure releases save guard and leaves editor available for retry', async () => {
+  const h = harness(); h.admin.openEditor(null);
+  h.element('photo-input').files = [{ name: 'bad.jpg' }];
+  const upload = h.element('photo-input').listeners.change();
+  assert.equal(h.element('save').disabled, true);
+  h.bitmaps[0].reject(new Error('decode')); await upload;
+  assert.equal(h.element('save').disabled, false);
+  assert.equal(h.element('photo-input').disabled, false);
+  assert.equal(h.element('editor').hidden, false);
+  assert.match(h.element('notice').textContent, /Не удалось/);
+});
+
+test('pending custom preview triggers discard guard before decoding finishes', async () => {
+  const h = harness({ confirm: () => false }); h.admin.openEditor(product('a'));
+  h.element('cut-input').files = [{ name: 'preview.png' }];
+  const upload = h.element('cut-input').listeners.change();
+  assert.equal(h.admin.dirty(), true);
+  h.element('cancel').listeners.click();
+  assert.equal(h.element('editor').hidden, false);
+  h.bitmaps[0].resolve(bitmap('new')); await upload;
+});
+
+test('cut result awaiting acceptance triggers discard guard', async () => {
+  const h = harness({ confirm: () => false }); h.admin.openEditor(product('a'));
+  const run = h.admin.runCut();
+  h.cuts[0].resolve({ dataUrl: result('pending').dataUrl, problems: ['Check edge'] }); await run;
+  assert.equal(h.admin.dirty(), true);
+  h.element('cancel').listeners.click();
+  assert.equal(h.element('editor').hidden, false);
+  assert.equal(h.admin.state().cut.pending.dataUrl, result('pending').dataUrl);
+});
+
+test('defect coordinate controls accept fractional positions without rounding saved notes', () => {
+  const h = harness();
+  h.admin.openEditor({ ...product('a'), notes: [{ x: 42.35, y: 71.2, text: 'Wear', type: 'flaw', img: 0 }] });
+  const coordinates = h.element('pin-list').children[0].children[4];
+  assert.equal(coordinates.children[0].children[0].step, 'any');
+  assert.equal(coordinates.children[0].children[0].value, 42.35);
+  assert.equal(coordinates.children[1].children[0].step, 'any');
+  assert.equal(coordinates.children[1].children[0].value, 71.2);
 });
