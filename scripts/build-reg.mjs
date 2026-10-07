@@ -15,6 +15,11 @@ for (const name of ['backend.php', 'index.php', 'router.php', 'init-account.php'
 }
 await writeFile(path.join(out, 'index.php'), "<?php\nrequire __DIR__ . '/php/router.php';\n");
 await writeFile(path.join(out, '.htaccess'), `RewriteEngine On
+RewriteCond %{HTTP_HOST} !^rewearvintage\\.shop$ [NC]
+RewriteRule ^ https://rewearvintage.shop%{REQUEST_URI} [R=301,L]
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP:X-Forwarded-Proto} !^https$ [NC]
+RewriteRule ^ https://rewearvintage.shop%{REQUEST_URI} [R=301,L]
 RewriteRule (^|/)\\. - [F,L]
 RewriteRule ^(?:php|private|test|scripts|deploy|lib|docs)(?:/|$) - [F,L]
 RewriteRule ^(?:api/|p/|images/|data/products\\.json$|sitemap\\.xml$) index.php [L,QSA]
