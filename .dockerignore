@@ -1,9 +1,0 @@
-.git
-node_modules
-test
-scripts
-deploy
-*.md
-.env*
-private/
-dist/
