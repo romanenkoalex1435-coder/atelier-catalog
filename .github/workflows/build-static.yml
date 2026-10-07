@@ -1,10 +1,12 @@
 # Keeps dist/ (the static storefront for Timeweb App Platform) in step with the catalog:
-# any push to main that changes the site or the catalog rebuilds it and commits the result.
+# any push to main that changes the site or the catalog rebuilds it, commits the result and uploads it to the
+# hosting over FTP (when the FTP_* repository secrets are set). Can also be started by hand from the Actions tab.
 name: Build static storefront
 on:
   push:
     branches: [main]
     paths-ignore: ['dist/**']
+  workflow_dispatch:
 permissions:
   contents: write
 concurrency:
@@ -31,3 +33,15 @@ jobs:
             sleep 5
           done
           exit 1
+      - name: Upload dist/ to the hosting (FTP)
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+        if: ${{ env.FTP_SERVER != '' }}
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_DIR }}
+          local-dir: ./dist/
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftp' }}
