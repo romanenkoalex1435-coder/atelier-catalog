@@ -3,3 +3,4 @@ test/
 scripts/
 deploy/
 *.md
+dist/
