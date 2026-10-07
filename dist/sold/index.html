@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#eee8dc">
+  <meta name="description" content="REWEAR VINTAGE — винтаж в единственном экземпляре. Выберите вещь и напишите нам в Telegram.">
+  <title>Проданное — REWEAR VINTAGE</title>
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="REWEAR VINTAGE">
+  <meta property="og:title" content="REWEAR VINTAGE — винтаж в единственном экземпляре">
+  <meta property="og:description" content="Каждая вещь одна. Паспорт, замеры и дефекты на фото. Заказ в Telegram.">
+  <meta property="og:image" content="https://atelier-catalog.vercel.app/og.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="preload" href="/fonts/caprasimo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" type="module"></script>
+</head>
+<body data-page="sold">
+  <!-- worn print: speckle holes in the logotype, like an old screen print -->
+  <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
+    <filter id="aged" x="-4%" y="-4%" width="112%" height="116%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" result="noise"/>
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  13 0 0 0 -3.6" result="specks"/>
+      <feComposite in="SourceGraphic" in2="specks" operator="in"/>
+    </filter>
+  </svg>
+  <header class="site-header" id="top">
+    <a class="brand" href="/" aria-label="REWEAR VINTAGE — наверх">Rewear</a>
+    <button class="cart-btn" id="cart-btn" type="button" aria-label="Корзина"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2.2l2.3 10.6a1.2 1.2 0 0 0 1.2.9h8.6a1.2 1.2 0 0 0 1.2-.9L20 7.5H6.1"/><circle cx="9.5" cy="19.3" r="1.2"/><circle cx="16.5" cy="19.3" r="1.2"/></svg><span class="cart-badge" id="cart-count" hidden>0</span></button>
+  </header>
+
+
+  <main>
+    <section class="catalog sold-page" id="archive" aria-labelledby="archive-title">
+      <a class="back-link" href="/">← Каталог</a>
+      <div class="section-head"><h1 id="archive-title">Проданное</h1><p class="section-meta" id="archive-count"></p></div>
+      <p class="sold-lead">Эти вещи уже нашли новых владельцев. Каждая была в единственном экземпляре.</p>
+      <div class="product-grid" id="archive-grid" aria-live="polite"><p class="loading">Загружаем…</p></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-brand"><p class="footer-mark">Rewear</p><p class="footer-sub">Vintage</p></div>
+    <nav class="footer-links" aria-label="Подвал">
+      <a class="footer-link" href="/" id="footer-archive">Каталог</a>
+      <button class="footer-link" type="button" data-go="faq">FAQ</button>
+      <button class="footer-link" type="button" data-go="cookies">Cookie</button>
+      <a class="footer-tg" id="footer-channel" href="#" target="_blank" rel="noopener noreferrer" hidden>Telegram</a>
+    </nav>
+  </footer>
+
+  <div class="consent" id="consent" role="dialog" aria-modal="false" aria-labelledby="consent-title" hidden>
+    <p id="consent-title" class="consent-text">Мы используем cookie и похожие технологии: необходимые — чтобы работала корзина, и аналитические — чтобы понимать, какие вещи смотрят. Аналитику включим только с вашего согласия.</p>
+    <div class="consent-actions">
+      <button class="consent-btn ghost" type="button" data-consent="decline">Отказаться</button>
+      <button class="consent-btn ghost" type="button" data-consent="details">Подробнее</button>
+      <button class="consent-btn primary-c" type="button" data-consent="accept">Принять</button>
+    </div>
+  </div>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="sheet-title" hidden>
+    <div class="sheet-head" id="sheet-head">
+      <span class="grabber" aria-hidden="true"></span>
+      <button class="icon-button" id="sheet-close" type="button" aria-label="Закрыть">×</button>
+    </div>
+    <div class="sheet-body" id="sheet-body"></div>
+  </section>
+
+  <div class="zoom" id="zoom" role="dialog" aria-modal="true" aria-label="Фото в полном размере" hidden>
+    <button class="icon-button" id="zoom-close" type="button" aria-label="Закрыть фото">×</button>
+    <div class="zoom-scroll" id="zoom-scroll"><img id="zoom-img" alt=""></div>
+    <p class="zoom-hint">Нажмите на фото, чтобы приблизить</p>
+  </div>
+</body>
+</html>
