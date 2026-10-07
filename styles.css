@@ -193,6 +193,7 @@ h1, h2, h3, p, ol, dl, dd, figure { margin: 0; }
 .notes { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
 .note { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center; width: 100%; padding: 10px 0; background: none; border: 0; border-bottom: 1px solid var(--line); text-align: left; font-size: 15px; }
 .note b { font-weight: 400; }
+p.note { margin: 0; }
 .note em { font-style: normal; font-size: 13px; color: var(--accent); font-weight: 500; }
 .note span, .pin { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-size: 13px; font-weight: 600; }
 .note span { border: 1px solid var(--steel); color: var(--steel); }
