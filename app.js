@@ -595,12 +595,13 @@ function cookieView() {
     sheet.classList.add('narrow');
     sheetBody.className = 'sheet-body';
     sheetBody.dataset.product = '';
-    const analyticsOn = readConsent()?.analytics ?? false;
     sheetBody.innerHTML = `<h2 id="sheet-title">Cookie и аналитика</h2>
-      <div class="cookie-option"><h3>Необходимые</h3><button class="switch" type="button" role="switch" aria-checked="true" disabled aria-label="Необходимые: всегда включены"></button><p>Нужны, чтобы сайт работал: хранят содержимое корзины и ваш выбор в этом окне. Хранятся только в вашем браузере, на сервер не передаются. Отключить нельзя.</p></div>
-      <div class="cookie-option"><h3>Аналитика</h3><button class="switch" type="button" role="switch" id="analytics-switch" aria-checked="${analyticsOn}" aria-label="Аналитика"></button><p>Яндекс Метрика: обезличенная статистика посещений — какие страницы и вещи открывают, с каких устройств. Помогает нам понять, что интересно покупателям. Данные обрабатывает ООО «Яндекс». Без вашего согласия счётчик не загружается.${metrikaId ? '' : ' Сейчас аналитика на сайте ещё не подключена: выбор сохранится на будущее.'}</p></div>
-      <p class="cookie-note">Выбор можно изменить в любой момент: ссылка «Cookie» внизу сайта.</p>
-      <div class="buy"><button class="primary wide" type="button" id="cookie-save">Сохранить выбор</button><div class="consent-actions"><button class="consent-btn" type="button" data-consent="decline">Отказаться</button><button class="consent-btn" type="button" data-consent="accept">Принять все</button></div></div>`;
+      <div id="cookie-info">
+        <section class="cookie-option"><h3>Необходимые</h3><p>Хранят корзину и ваше согласие в браузере. Нужны для работы сайта и используются всегда.</p></section>
+        <section class="cookie-option"><h3>Аналитика</h3><p>Яндекс Метрика собирает статистику посещений: какие страницы и вещи открывают и с каких устройств. Данные обрабатывает ООО «Яндекс». Счётчик загружается только после вашего согласия.${metrikaId ? '' : ' Сейчас аналитика ещё не подключена: ваше решение сохранится.'}</p></section>
+      </div>
+      <p class="cookie-note">Нажимая «Принять всё», вы соглашаетесь на использование всех описанных выше технологий. Отказ оставит только необходимое для работы сайта. Решение можно изменить по ссылке «Cookie» внизу страницы.</p>
+      <div class="buy"><div class="consent-actions"><button class="consent-btn" type="button" data-consent="decline">Отказаться</button><button class="consent-btn primary-c" type="button" data-consent="accept">Принять всё</button></div></div>`;
   };
 }
 
@@ -623,13 +624,10 @@ function setupConsent(config) {
 
 document.addEventListener('click', event => {
   const action = event.target.closest('[data-consent]')?.dataset.consent;
-  const toggle = event.target.closest('#analytics-switch');
-  if (toggle) { toggle.setAttribute('aria-checked', String(toggle.getAttribute('aria-checked') !== 'true')); return; }
-  if (event.target.closest('#cookie-save')) { saveConsent(sheetBody.querySelector('#analytics-switch')?.getAttribute('aria-checked') === 'true'); closeSheet(); return; }
   if (!action) return;
   if (action === 'details') { openCookieSettings(); return; }
   saveConsent(action === 'accept');
-  if (sheetOpen && sheetBody.querySelector('#analytics-switch')) closeSheet();
+  if (sheetOpen && sheetBody.querySelector('#cookie-info')) closeSheet();
 });
 
 async function init() {
