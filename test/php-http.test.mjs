@@ -10,6 +10,13 @@ const login = process.env.PHP_TEST_LOGIN;
 const password = process.env.PHP_TEST_PASSWORD;
 let cookie = '';
 async function req(path, method = 'GET', body, headers = {}) {
+  // Convenience for ordinary successful mutations; conflict tests pass an explicit revision.
+  if (path.startsWith('/api/admin/products?id=') && ['PUT', 'DELETE'].includes(method) && !Object.hasOwn(body || {}, 'revision')) {
+    const current = await reqRaw('/api/admin/products', 'GET', undefined, headers);
+    const id = new URL(path, base).searchParams.get('id');
+    const product = current.data.products?.find(item => item.id === id);
+    body = { ...body, revision: product?.revision };
+  }
   return reqRaw(path, method, body === undefined ? undefined : JSON.stringify(body), headers);
 }
 async function reqRaw(path, method, body, headers = {}) {
@@ -63,10 +70,22 @@ test('PHP HTTP auth, catalog, account and security contracts', { skip: !base }, 
   const image = 'data:image/jpeg;base64,' + jpeg.toString('base64');
   const preview = 'data:image/webp;base64,' + readFileSync(new URL('../images/preview/demo-01.webp', import.meta.url)).toString('base64');
   const title = 'PHP staging check ' + Date.now();
-  const created = await req('/api/admin/products', 'POST', { title, price: 2190, description: 'Проверка', category: 'Аксессуары', padding: 'x'.repeat(16_384), images: [image], preview, notes: [{ x: 10, y: 20, text: 'Деталь', img: 0 }] });
+  const created = await req('/api/admin/products', 'POST', { title, price: 2190, description: 'Проверка', category: 'Аксессуары', condition: 'Хорошее', padding: 'x'.repeat(16_384), images: [image], preview, notes: [{ x: 10, y: 20, text: 'Деталь', img: 0 }] });
   assert.equal(created.status, 200, JSON.stringify(created.data));
   const product = created.data.products.find(p => p.title === title); assert.ok(product);
   try {
+    assert.match(product.revision, /^[a-f0-9]{64}$/);
+    const priceEdit = await req('/api/admin/products?id=' + product.id, 'PUT', { revision: product.revision, price: 2490 });
+    assert.equal(priceEdit.status, 200);
+    const latest = priceEdit.data.products.find(p => p.id === product.id);
+    assert.notEqual(latest.revision, product.revision);
+    const stale = await req('/api/admin/products?id=' + product.id, 'PUT', { revision: product.revision, price: 2190, description: 'Old tab' });
+    assert.equal(stale.status, 409);
+    assert.equal(stale.data.conflict, true);
+    assert.equal(stale.data.product.price, 2490);
+    assert.equal((await req('/api/admin/products?id=' + product.id, 'DELETE', { revision: product.revision })).status, 409);
+    assert.equal((await reqRaw('/api/admin/products?id=' + product.id, 'PUT', JSON.stringify({ price: 100 }))).status, 409);
+    assert.equal((await req('/api/admin/products')).data.products.find(p => p.id === product.id).price, 2490);
     const fetched = await req(product.image); assert.equal(fetched.status, 200);
     assert.equal(fetched.headers.get('content-type'), 'image/jpeg');
     assert.equal((await req(product.preview)).headers.get('content-type'), 'image/webp');
@@ -76,13 +95,15 @@ test('PHP HTTP auth, catalog, account and security contracts', { skip: !base }, 
     assert.ok((await req('/sitemap.xml')).data.includes('/p/' + product.id));
     assert.equal((await req('/api/admin/products?id=' + product.id, 'PUT', { title: 'hacked' }, { origin: 'https://evil.example' })).status, 403);
     assert.equal((await req('/api/admin/products?id=' + product.id, 'DELETE', undefined, { origin: 'https://evil.example' })).status, 403);
+    const common = (await req('/api/admin/products')).data.products.find(p => p.id === product.id).revision;
     const updates = await Promise.all([
-      req('/api/admin/products?id=' + product.id, 'PUT', { sold: true }),
-      req('/api/admin/products?id=' + product.id, 'PUT', { reserved: true }),
+      req('/api/admin/products?id=' + product.id, 'PUT', { revision: common, sold: true }),
+      req('/api/admin/products?id=' + product.id, 'PUT', { revision: common, reserved: true }),
     ]);
-    assert.ok(updates.every(r => r.status === 200));
+    assert.deepEqual(updates.map(r => r.status).sort(), [200, 409]);
     const changed = (await req('/api/admin/products')).data.products.find(p => p.id === product.id);
-    assert.equal(changed.sold, true); assert.equal(changed.reserved, true);
+    assert.equal(Number(changed.sold) + Number(changed.reserved), 1);
+    await req('/api/admin/products?id=' + product.id, 'PUT', { sold: true });
     assert.ok(!(await req('/sitemap.xml')).data.includes('/p/' + product.id));
     await req('/api/admin/products?id=' + product.id, 'PUT', { active: false });
     assert.ok(!(await req('/data/products.json')).data.some(p => p.id === product.id));
@@ -98,6 +119,22 @@ test('PHP HTTP auth, catalog, account and security contracts', { skip: !base }, 
     const deleted = await req('/api/admin/products?id=' + product.id, 'DELETE'); assert.equal(deleted.status, 200);
     assert.equal((await req(product.image)).status, 404);
   }
+  const draftResult = await req('/api/admin/products', 'POST', { title: 'Private draft', price: 100, active: false });
+  assert.equal(draftResult.status, 200);
+  const draft = draftResult.data.products.find(p => p.title === 'Private draft');
+  try {
+    assert.equal(draft.active, false);
+    assert.ok(!(await req('/data/products.json')).data.some(p => p.id === draft.id));
+    assert.ok(!(await req('/sitemap.xml')).data.includes('/p/' + draft.id));
+    assert.equal((await req('/api/admin/products?id=' + draft.id, 'PUT', { active: true })).status, 400);
+    assert.equal((await req('/api/admin/products?id=' + draft.id, 'PUT', { active: true, condition: 'Хорошее' })).status, 400);
+    const publish = await req('/api/admin/products?id=' + draft.id, 'PUT', { active: true, condition: 'Хорошее', images: [image] });
+    assert.equal(publish.status, 200);
+    assert.ok((await req('/data/products.json')).data.some(p => p.id === draft.id));
+    assert.ok((await req('/sitemap.xml')).data.includes('/p/' + draft.id));
+  } finally { assert.equal((await req('/api/admin/products?id=' + draft.id, 'DELETE')).status, 200); }
+  assert.equal((await req('/api/admin/products', 'POST', { title: 'No photos', price: 100, active: true, condition: 'Good' })).status, 400);
+  assert.equal((await req('/api/admin/products', 'POST', { title: 'Bad active', price: 100, active: 'false' })).status, 400);
   assert.equal((await req('/api/admin/logout', 'POST')).status, 200);
   cookie = ''; assert.equal((await req('/api/admin/products')).status, 401);
 });

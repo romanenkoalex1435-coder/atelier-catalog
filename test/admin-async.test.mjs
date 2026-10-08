@@ -9,10 +9,10 @@ function deferred() {
   return { promise, resolve, reject };
 }
 function harness({ confirm = () => true } = {}) {
-  const elements = new Map(), cuts = [], bitmaps = [], requests = [];
+  const elements = new Map(), cuts = [], bitmaps = [], requests = [], windowEvents = {};
   function node() {
     return { hidden: false, value: '', checked: false, disabled: false, files: [], style: {}, listeners: {}, children: [],
-      classList: { toggle() {} }, append(...items) { this.children.push(...items); }, replaceChildren(...items) { this.children = items; }, setAttribute() {}, focus() {}, scrollIntoView() {}, reset() {},
+      classList: { toggle() {} }, append(...items) { this.children.push(...items); }, replaceChildren(...items) { this.children = items; }, setAttribute() {}, focus() { this.focused = true; }, scrollIntoView() {}, reset() {},
       querySelector() { return null; }, closest() { return this; },
       addEventListener(name, callback) { this.listeners[name] = callback; },
     };
@@ -22,6 +22,7 @@ function harness({ confirm = () => true } = {}) {
     for (const field of ['title', 'price', 'description', 'category', 'size', 'brand', 'era', 'origin', 'condition', 'measures', 'login', 'password', 'password2', 'currentPassword', 'allowedIps']) element(id)[field] = node();
   }
   const context = vm.createContext({
+    window: {addEventListener: (name, callback) => {windowEvents[name] = callback;}},
     document: { getElementById: element, createElement(tag) {
       const el = node();
       if (tag === 'canvas') {
@@ -36,15 +37,16 @@ function harness({ confirm = () => true } = {}) {
     createImageBitmap(file) { const d = deferred(); bitmaps.push({ ...d, file }); return d.promise; },
     confirm,
     fetch(path, options) { const d = deferred(); requests.push({ ...d, path, options }); return d.promise; },
+    location: {origin: 'https://example.test'},
     console,
   });
   const source = readFileSync(new URL('../admin/admin.js', import.meta.url), 'utf8')
     .replace(/^import[^\n]+\n/, '')
     .replace(/^load\(\);$/m, '');
-  vm.runInContext(source + '\n globalThis.admin = { openEditor, runCut, mutate, dirty, render, seed: value => { products = value; render(); }, state: () => ({ cut, photos, selected }) };', context);
-  return { admin: context.admin, elements, element, cuts, bitmaps, requests };
+  vm.runInContext(source + '\n globalThis.admin = { openEditor, runCut, mutate, dirty, render, api, load, seed: value => { products = value; render(); }, state: () => ({ cut, photos, selected }) };', context);
+  return { admin: context.admin, elements, element, cuts, bitmaps, requests, windowEvents };
 }
-const product = id => ({ id, title: id, price: 100, images: ['/images/' + id + '.jpg'], preview: '/images/preview/' + id + '.webp', notes: [] });
+const product = id => ({ id, title: id, price: 100, images: ['/images/' + id + '.jpg'], preview: '/images/preview/' + id + '.webp', notes: [], category: 'Штаны', revision: 'r1' });
 const result = tag => ({ dataUrl: 'data:image/webp;base64,' + tag, problems: [] });
 const bitmap = tag => ({ width: 100, height: 100, tag });
 
@@ -232,3 +234,21 @@ test('defect coordinate controls accept fractional positions without rounding sa
   assert.equal(coordinates.children[1].children[0].step, 'any');
   assert.equal(coordinates.children[1].children[0].value, 71.2);
 });
+
+ test('rejecting recut removes saved cover', async () => { const h=harness(); h.admin.openEditor(product('a')); const run=h.admin.runCut(); h.cuts[0].resolve({ ...result('new'), problems:['edge'] }); await run; h.element('cut-reject').listeners.click(); assert.equal(h.admin.state().cut.path,''); assert.equal(h.admin.state().cut.changed,true); });
+ test('category change invalidates running cut and existing cover', async () => { const h=harness(); h.admin.openEditor(product('a')); const run=h.admin.runCut(); h.element('editor').category.value='Обувь'; h.element('editor').category.listeners.change(); h.cuts[0].resolve(result('old-kind')); await run; assert.equal(h.admin.state().cut.data,''); assert.equal(h.admin.state().cut.path,''); });
+ test('source deletion clears cover and restores focus', () => { const h=harness(); h.admin.openEditor(product('a')); h.element('photo-strip').children[0].children[1].children[2].listeners.click(); assert.equal(h.admin.state().cut.path,''); assert.equal(h.element('photo-input').focused,true); });
+ test('expired session keeps dirty editor and resumes after reload', async () => { const h=harness(); h.admin.openEditor(product('a')); h.element('editor').title.value='Unsaved'; const call=h.admin.api('/api/admin/products'); h.requests[0].resolve({status:401,ok:false,json:async()=>({})}); await assert.rejects(call); assert.equal(h.admin.dirty(),true); const reload=h.admin.load(); h.requests[1].resolve({status:200,ok:true,json:async()=>({products:[product('a')]})}); await reload; assert.equal(h.element('editor').title.value,'Unsaved'); assert.equal(h.element('editor').hidden,false); });
+ test('editor sends captured revision and keeps fields on conflict', async () => { const h=harness(); h.admin.openEditor(product('a')); h.admin.seed([{...product('a'),revision:'r2'}]); h.element('editor').title.value='mine'; const save=h.element('editor').listeners.submit({preventDefault(){}}); assert.equal(JSON.parse(h.requests[0].options.body).revision,'r1'); h.requests[0].resolve({status:409,ok:false,json:async()=>({error:'Conflict',conflict:true,product:{...product('a'),revision:'r2'}})}); await save; assert.equal(h.element('editor').title.value,'mine'); assert.equal(h.element('editor').hidden,false); assert.equal(h.element('conflict-reload').hidden,false); });
+ test('new item saves explicitly as draft', async () => { const h=harness(); h.admin.openEditor(null); h.element('editor').title.value='draft'; h.element('editor').price.value='100'; const save=h.element('editor').listeners.submit({preventDefault(){},submitter:h.element('save')}); assert.equal(JSON.parse(h.requests[0].options.body).active,false); h.requests[0].resolve({status:200,ok:true,json:async()=>({products:[]})}); await save; });
+ test('publishing requires condition and image', async () => { const h=harness(); h.admin.openEditor(null); h.element('editor').title.value='draft'; h.element('editor').price.value='100'; await h.element('editor').listeners.submit({preventDefault(){},submitter:h.element('publish')}); assert.equal(h.requests.length,0); });
+
+test('preview posts only current unsaved product and closes restoring focus', () => { const h=harness(); h.admin.openEditor(product('a')); h.element('editor').title.value='Unsaved'; h.element('preview-modal').hidden=true; const messages=[]; h.element('preview-frame').contentWindow={postMessage:(data,origin)=>messages.push({data,origin})}; h.element('preview-open').listeners.click(); h.element('preview-frame').listeners.load(); assert.equal(messages[0].data.product.title,'Unsaved'); assert.deepEqual(Array.from(messages[0].data.product.images),['/images/a.jpg']); h.element('preview-close').listeners.click(); assert.equal(h.element('preview-modal').hidden,true); assert.equal(h.element('preview-open').focused,true); });
+test('reordering and selecting photos restore focus', () => { const h=harness(); h.admin.openEditor({...product('a'),images:['/a.jpg','/b.jpg']}); h.element('photo-strip').children[0].children[1].children[1].listeners.click(); assert.equal(h.element('photo-strip').children[1].children[0].focused,true); h.element('photo-strip').children[0].children[0].listeners.click(); assert.equal(h.element('photo-strip').children[0].children[0].focused,true); });
+test('deleting last defect restores add control focus', () => { const h=harness(); h.admin.openEditor({...product('a'),notes:[{x:50,y:50,text:'wear',type:'flaw',img:0}]}); h.element('pin-list').children[0].children[2].listeners.click(); assert.equal(h.element('pin-add').focused,true); });
+test('list deletion sends corresponding revision', async () => { const h=harness(); h.admin.seed([product('a')]); h.element('list').children[0].children[2].children[1].children[1].children[3].listeners.click(); assert.equal(JSON.parse(h.requests[0].options.body).revision,'r1'); h.requests[0].resolve({status:200,ok:true,json:async()=>({products:[]})}); await new Promise(r=>setImmediate(r)); });
+test('current resulting cover remains visible with tools collapsed', () => { const h=harness(); h.admin.openEditor(product('a')); assert.equal(h.element('current-cover').src,'/images/preview/a.webp'); assert.equal(h.element('current-cover').hidden,false); });
+
+test('preview readiness and close accept only exact iframe origin and window', () => { const h=harness(); h.admin.openEditor(product('a')); const messages=[]; const child={postMessage:data=>messages.push(data)}; h.element('preview-frame').contentWindow=child; h.element('preview-open').listeners.click(); const message=h.windowEvents.message; message({origin:'https://evil.test',source:child,data:{type:'rewear-preview-ready'}}); message({origin:'https://example.test',source:{},data:{type:'rewear-preview-ready'}}); assert.equal(messages.length,0); message({origin:'https://example.test',source:child,data:{type:'rewear-preview-ready'}}); assert.equal(messages.length,1); message({origin:'https://example.test',source:child,data:{type:'rewear-preview-close'}}); assert.equal(h.element('preview-modal').hidden,true); });
+test('forced account change preserves editor and resumes after successful reload', async () => { const h=harness(); h.admin.openEditor(product('a')); h.element('editor').title.value='Unsaved'; const request=h.admin.api('/api/admin/products'); h.requests[0].resolve({status:403,ok:false,json:async()=>({mustChange:true})}); await assert.rejects(request); h.requests[1].resolve({status:200,ok:true,json:async()=>({login:'admin',ip:'1.2.3.4',allowedIps:[]})}); await new Promise(r=>setImmediate(r)); assert.equal(h.element('editor').title.value,'Unsaved'); const reload=h.admin.load(); h.requests[2].resolve({status:200,ok:true,json:async()=>({products:[]})}); await reload; assert.equal(h.element('editor').hidden,false); assert.equal(h.admin.dirty(),true); });
+test('expired session keeps unload guard and pending cover decision', async () => { const h=harness(); h.admin.openEditor(product('a')); const run=h.admin.runCut(); h.cuts[0].resolve({...result('new'),problems:['edge']}); await run; const request=h.admin.api('/api/admin/products'); h.requests[0].resolve({status:401,ok:false,json:async()=>({})}); await assert.rejects(request); const event={preventDefault(){this.prevented=true;}}; h.windowEvents.beforeunload(event); assert.equal(event.prevented,true); assert.equal(h.admin.state().cut.pending.dataUrl,result('new').dataUrl); });

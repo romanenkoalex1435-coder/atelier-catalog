@@ -265,25 +265,42 @@ function rw_catalog(): array {
     foreach ($catalog as $p) if (!is_array($p) || !isset($p['id']) || !is_string($p['id'])) throw new RuntimeException('Invalid product');
     return $catalog;
 }
+function rw_admin_product(array $p): array {
+    unset($p['revision']);
+    $p['revision']=hash('sha256',json_encode($p,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));
+    return $p;
+}
+function rw_admin_products(array $products): array { return array_map('rw_admin_product',$products); }
+function rw_require_publishable(array $p): void {
+    if (!rw_images($p) && empty($p['preview'])) throw new RWError(400,'Перед публикацией добавьте фото вещи.');
+    if (trim($p['condition']??'')==='') throw new RWError(400,'Перед публикацией укажите состояние вещи.');
+}
 function rw_products(string $method,array $body): array {
-    if ($method==='GET') return ['products'=>rw_catalog()];
+    if ($method==='GET') return ['products'=>rw_admin_products(rw_catalog())];
     if (!in_array($method,['POST','PUT','DELETE'],true)) throw new RWError(405,'Метод не поддерживается.');
     return rw_lock('catalog', function() use($method,$body) {
         $products=rw_catalog(); $writes=[]; $removed=[];
         $incoming=array_key_exists('images',$body)?$body['images']:(array_key_exists('image',$body)?($body['image']?[$body['image']]:[]):null);
         $hasImages=array_key_exists('images',$body)||array_key_exists('image',$body);
         if ($method==='POST') {
+            if (array_key_exists('active',$body) && !is_bool($body['active'])) throw new RWError(400,'Поле «active»: нужен логический тип.');
             $id='p-'.base_convert((string)(int)(microtime(true)*1000),10,36).'-'.bin2hex(random_bytes(4));
             $p=array_merge(['id'=>$id],rw_fields($body));
             $images=$hasImages?rw_photo_plan($incoming,$id,[],$writes):[];
-            $p=array_merge($p,['image'=>$images[0]??'','images'=>$images,'notes'=>array_key_exists('notes',$body)?rw_notes($body['notes'],count($images)):[], 'active'=>true,'sold'=>false,'reserved'=>false,'createdAt'=>gmdate('Y-m-d\TH:i:s\Z')]);
+            $p=array_merge($p,['image'=>$images[0]??'','images'=>$images,'notes'=>array_key_exists('notes',$body)?rw_notes($body['notes'],count($images)):[], 'active'=>$body['active']??true,'sold'=>false,'reserved'=>false,'createdAt'=>gmdate('Y-m-d\TH:i:s\Z')]);
             if (array_key_exists('preview',$body) && $body['preview']!==null && $body['preview']!=='') $p['preview']=rw_preview_plan($body['preview'],$id,$writes);
+            if ($p['active']) rw_require_publishable($p);
             array_unshift($products,$p);
         } else {
             $id=rw_id($_GET['id']??$body['id']??null); $index=null;
             foreach ($products as $i=>$p) if ($p['id']===$id) { $index=$i; break; }
             if ($index===null) throw new RWError(404,'Товар не найден.');
             $p=$products[$index];
+            $current=rw_admin_product($p);
+            if (!is_string($body['revision']??null) || !hash_equals($current['revision'],$body['revision'])) {
+                throw new RWError(409,'Вещь уже изменена в другой вкладке или на другом устройстве. Ваши правки не сохранены.',['conflict'=>true,'product'=>$current]);
+            }
+            $wasActive=!empty($p['active']);
             if ($method==='DELETE') { array_splice($products,$index,1); $removed=array_merge(rw_images($p),[$p['preview']??'']); }
             else {
                 if (array_intersect(array_keys($body),array_merge(['title','price','description'],array_keys(RW_PASSPORT)))) $p=array_merge($p,rw_fields(array_merge($p,$body)));
@@ -297,6 +314,7 @@ function rw_products(string $method,array $body): array {
                 $count=count(rw_images($p));
                 if (array_key_exists('notes',$body)) $p['notes']=rw_notes($body['notes'],$count);
                 elseif (isset($p['notes']) && is_array($p['notes'])) $p['notes']=array_values(array_filter($p['notes'],fn($n)=>($n['img']??0)<$count));
+                if (!$wasActive && !empty($p['active'])) rw_require_publishable($p);
                 $products[$index]=$p;
             }
         }
@@ -307,7 +325,7 @@ function rw_products(string $method,array $body): array {
         } catch (Throwable $e) { foreach ($saved as $path) rw_delete_photo($path); throw $e; }
         $used=[]; foreach ($products as $p) $used=array_merge($used,rw_images($p),[$p['preview']??'']);
         foreach ($removed as $path) if (!in_array($path,$used,true)) rw_delete_photo($path);
-        return ['products'=>$products];
+        return ['products'=>rw_admin_products($products)];
     });
 }
 function rw_account_view(array $a): array { return ['login'=>$a['login'],'mustChange'=>(bool)$a['mustChange'],'allowedIps'=>$a['allowedIps'],'ip'=>rw_ip(),'updatedAt'=>$a['updatedAt']??null]; }

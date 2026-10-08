@@ -126,3 +126,13 @@
 .admin .editor-actions { border-bottom: 1px solid var(--line); border-top: 0; }
 
 .admin .editor { scroll-margin-top: 80px; }
+
+.preview-modal { position: fixed; inset: 0; z-index: 50; background: rgba(42,27,21,.55); padding: 20px; display: grid; place-items: center; }
+.preview-shell { width: min(1100px, 100%); height: 90dvh; display: grid; grid-template-rows: auto minmax(0,1fr); gap: 12px; padding: 16px; background: var(--paper); }
+.preview-shell > .btn { justify-self: end; }
+.preview-shell iframe { width: 100%; height: 100%; border: 0; background: var(--paper); }
+.editor-actions .row { flex-wrap: wrap; }
+@media (max-width:639px) { .preview-modal { padding: 8px; } .preview-shell { padding: 8px; height: 95dvh; } }
+
+.current-cover { margin: 0; display: grid; gap: 8px; }
+.current-cover img { width: 180px; height: 225px; object-fit: contain; background: var(--plate); }

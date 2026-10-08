@@ -13,6 +13,7 @@ document.addEventListener('click', event => {
   target.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 });
 
+const ADMIN_PREVIEW = new URLSearchParams(location.search).has('admin-preview') && window.parent !== window;
 const PAGE = document.body.dataset.page || 'home';
 const grid = document.querySelector('#product-grid');
 const archiveGrid = document.querySelector('#archive-grid');
@@ -48,7 +49,8 @@ function saveCart(deferCount = false) {
 }
 
 const byId = id => products.find(product => product.id === id);
-const cartTotal = () => cart.reduce((sum, item) => sum + byId(item.id).price, 0);
+const orderable = product => product && product.active && !product.sold && !product.reserved;
+const cartTotal = () => cart.reduce((sum, item) => sum + (orderable(byId(item.id)) ? byId(item.id).price : 0), 0);
 
 function updateCount() {
   const total = cart.length;
@@ -124,6 +126,7 @@ function pushLayer(layer) {
   history.pushState({ ...history.state, rewearModal: layer }, '', location.href);
 }
 function requestLayerClose() {
+  if (ADMIN_PREVIEW && zoom.hidden) { window.parent.postMessage({type:'rewear-preview-close'}, location.origin); return; }
   if (historyClosing) return;
   if (modalLayer()) { historyClosing = true; history.back(); }
   else if (!zoom.hidden) hideZoom();
@@ -143,6 +146,7 @@ function openSheet(render, fromHistory = false) {
   ++sheetGeneration;
   stopAnim?.();
   sheetRenderer = render;
+  sheetBody.dataset.view = '';
   render();
   sheetBody.classList.remove('enter'); void sheetBody.offsetWidth; sheetBody.classList.add('enter');
   clearTimeout(openSheet.t); openSheet.t = setTimeout(() => sheetBody.classList.remove('enter'), 1000);
@@ -158,6 +162,7 @@ function openSheet(render, fromHistory = false) {
   (opening ? sheet.querySelector('#sheet-close') : title || sheet.querySelector('#sheet-close')).focus({ preventScroll: true });
 }
 function closeSheet(velocity = 0) {
+  if (ADMIN_PREVIEW) { window.parent.postMessage({type:'rewear-preview-close'}, location.origin); return; }
   if (!sheetOpen) return;
   closeSheet.velocity = velocity;
   requestLayerClose();
@@ -230,11 +235,12 @@ document.addEventListener('focusin', event => {
 isDesktop.addEventListener('change', () => { if (sheetOpen) setPos(0); });
 
 /* ---------- catalog ---------- */
-const photosOf = product => (Array.isArray(product.images) && product.images.length ? product.images : product.image ? [product.image] : []).filter(src => /^\/images\/[a-z0-9.-]+$/.test(src));
+const previewData = src => ADMIN_PREVIEW && /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(src || '');
+const photosOf = product => (Array.isArray(product.images) && product.images.length ? product.images : product.image ? [product.image] : []).filter(src => typeof src === 'string' && (/^\/images\/[a-z0-9.-]+$/.test(src) || previewData(src)));
 // A hand-made 4:5 preview (product.preview) wins in the grid; otherwise the whole original is shown with object-fit: contain.
-const previewOf = product => (/^\/images\/[a-z0-9./-]+\.(webp|png|jpg)$/.test(product.preview || '') ? product.preview : photosOf(product)[0]);
+const previewOf = product => ((/^\/images\/[a-z0-9./-]+\.(webp|png|jpg)$/.test(product.preview || '') || previewData(product.preview)) ? product.preview : photosOf(product)[0]);
 
-const hasCut = product => /^\/images\/[a-z0-9./-]+\.(?:webp|png)$/.test(product.preview || '');
+const hasCut = product => /^\/images\/[a-z0-9./-]+\.(?:webp|png)$/.test(product.preview || '') || previewData(product.preview);
 function imageMarkup(product) {
   const src = previewOf(product);
   return src ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(product.title)}" loading="lazy" decoding="async">` : `<span class="placeholder">${hanger}</span>`;
@@ -260,7 +266,7 @@ const isNew = product => Boolean(product.createdAt) && Date.now() - Date.parse(p
 
 function tileMarkup(product) {
   const status = product.sold ? '<span class="tag sold">Продано</span>' : product.reserved ? '<span class="tag">Бронь</span>' : isNew(product) ? '<span class="tag new">Новое</span>' : '';
-  const count = hasCut(product) ? 1 : photosOf(product).length;
+  const count = photosOf(product).length + Number(hasCut(product));
   const size = product.size ? `<p class="tile-size">Размер: ${escapeHtml(product.size)}</p>` : '';
   const cond = product.condition ? `<p class="tile-cond">${escapeHtml(product.condition)}</p>` : '';
   return `<button class="tile" type="button" data-id="${escapeHtml(product.id)}"><div class="tile-image${hasCut(product) ? ' cut' : ''}">${imageMarkup(product)}${status}${count > 1 ? `<span class="count" aria-label="Фото: ${count}">${count} фото</span>` : ''}</div><div class="tile-meta"><h3 class="tile-title">${escapeHtml(product.title)}</h3>${size}<p class="tile-price">${currency(product.price)}</p>${cond}</div></button>`;
@@ -319,6 +325,7 @@ function plural(n, one, few, many) {
 }
 
 function buyPanel(product, justAdded = false) {
+  if (ADMIN_PREVIEW) return `<div class="buy"><span class="buy-price">${currency(product.price)}</span><p class="hint">Предпросмотр</p></div>`;
   if (product.sold) return '<div class="buy"><p class="buy-note">Эта вещь уже ушла к новому владельцу.</p></div>';
   if (product.reserved) return '<div class="buy"><div class="buy-row"><span class="buy-price">' + currency(product.price) + '</span><button class="primary" type="button" disabled>Забронировано</button></div></div>';
   if (justAdded || cart.some(item => item.id === product.id)) return `<div class="buy"><p class="added">${justAdded ? 'Добавлено в корзину' : 'Уже в корзине'}</p><div class="buy-actions"><button class="primary" id="open-cart" type="button">Открыть корзину</button><button class="ghost" id="keep-looking" type="button">Продолжить</button></div></div>`;
@@ -327,7 +334,7 @@ function buyPanel(product, justAdded = false) {
 
 // up to four other pieces: same category first, then the newest
 function relatedMarkup(product) {
-  const live = products.filter(item => item.id !== product.id && !item.sold);
+  const live = ADMIN_PREVIEW ? [] : products.filter(item => item.id !== product.id && !item.sold && !item.reserved);
   const same = live.filter(item => product.category && item.category === product.category);
   const picks = [...same, ...live.filter(item => !same.includes(item))].slice(0, 4);
   if (!picks.length) return '';
@@ -339,21 +346,22 @@ function productView(product) {
     sheet.classList.remove('narrow');
     sheetBody.className = 'sheet-body product';
     const originals = photosOf(product);
-    // with a cut-out preview the sheet shows only it: the originals on the rug stay out of the shop;
-    // without one the originals are the only photos, and they carry the defect pins
+    // Clean cover first, then originals with their original defect associations.
     const cut = hasCut(product) ? previewOf(product) : '';
-    const slideList = cut ? [{ src: cut, cut: true }] : originals.map((src, i) => ({ src, index: i }));
+    const slideList = [...(cut ? [{ src: cut, cut: true }] : []), ...originals.map((src, i) => ({ src, index: i }))];
+    const slideOffset = cut ? 1 : 0;
     const defects = (Array.isArray(product.notes) ? product.notes : []).filter(note => note.type === 'flaw');
-    const description = `<p class="hint">${escapeHtml(VINTAGE_NOTICE)}</p>` + (!product.description ? '' : `<p class="sheet-desc">${escapeHtml(product.description)}</p>`);
+    const description = !product.description ? '' : `<p class="sheet-desc">${escapeHtml(product.description)}</p>`;
+    const summary = [product.size && `Размер: ${product.size}`, product.condition].filter(Boolean).map(escapeHtml).join(' · ');
     const rows = [['Категория', product.category], ['Размер', product.size], ['Бренд', product.brand], ['Эпоха', product.era], ['Происхождение', product.origin], ['Состояние', product.condition], ['Замеры, см', product.measures]].filter(([, value]) => value);
     const passport = rows.length ? `<h3 class="block-title">Паспорт вещи</h3><dl class="passport">${rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>` : '';
     const pinsFor = index => defects.map((note, i) => (note.img || 0) === index ? `<button class="pin flaw" type="button" data-note="${i}" style="left:${Number(note.x)}%;top:${Number(note.y)}%" aria-label="Дефект ${i + 1}: ${escapeHtml(note.text)}">${i + 1}</button>` : '').join('');
     const slides = slideList.length ? slideList.map((slide, n) => `<figure class="slide"><div class="pinbox${slide.cut ? ' cutbox' : ''}"><button class="photo-open" type="button" data-zoom="${escapeHtml(slide.src)}" aria-label="Открыть фото ${n + 1}: ${escapeHtml(product.title)}"><img src="${escapeHtml(slide.src)}" alt="${escapeHtml(product.title)}, ${n + 1} из ${slideList.length}"${n ? ' loading="lazy"' : ''}></button>${slide.cut ? '' : pinsFor(slide.index)}</div></figure>`).join('') : `<figure class="slide"><div class="pinbox empty"><span class="placeholder">${hanger}</span></div></figure>`;
     const dots = slideList.length > 1 ? `<span class="counter" id="counter">1 / ${slideList.length}</span><div class="dots">${slideList.map((_, i) => `<button type="button" class="dot" data-slide="${i}" aria-label="Фото ${i + 1}" aria-current="${i === 0}"></button>`).join('')}</div>` : '';
-    const tools = defects.length && !cut ? '<div class="gallery-tools"><button type="button" id="toggle-pins" aria-pressed="false">Показать дефекты</button></div>' : '';
-    const noteList = defects.length ? `<h3 class="block-title">Дефекты</h3><ol class="notes">${defects.map((note, i) => `<li>${cut ? `<p class="note flaw"><span>${i + 1}</span><b>${escapeHtml(note.text)}</b></p>` : `<button class="note flaw" type="button" data-note="${i}" data-img="${note.img || 0}"><span>${i + 1}</span><b>${escapeHtml(note.text)}</b></button>`}</li>`).join('')}</ol>` : '';
+    const tools = defects.length && originals.length ? '<div class="gallery-tools"><button type="button" id="toggle-pins" aria-pressed="false">Показать дефекты</button></div>' : '';
+    const noteList = defects.length ? `<h3 class="block-title">Дефекты</h3><ol class="notes">${defects.map((note, i) => `<li><button class="note flaw" type="button" data-note="${i}" data-img="${(note.img || 0) + slideOffset}"><span>${i + 1}</span><b>${escapeHtml(note.text)}</b></button></li>`).join('')}</ol>` : '';
     sheetBody.dataset.product = product.id;
-    sheetBody.innerHTML = `<div class="gallery"><div class="slides" id="slides" tabindex="0" aria-label="Фото вещи, листайте вбок">${slides}</div>${dots}${tools}</div><div class="title-row"><h2 id="sheet-title">${escapeHtml(product.title)}</h2><button class="textlink share" type="button" data-share="${escapeHtml(product.id)}">Поделиться</button></div>${description}${passport}${noteList}${relatedMarkup(product)}${buyPanel(product)}`;
+    sheetBody.innerHTML = `<div class="gallery"><div class="slides" id="slides" tabindex="0" aria-label="Фото вещи, листайте вбок">${slides}</div>${dots}${tools}</div><div class="title-row"><h2 id="sheet-title">${escapeHtml(product.title)}</h2>${ADMIN_PREVIEW ? '' : `<button class="textlink share" type="button" data-share="${escapeHtml(product.id)}">Поделиться</button>`}</div>${summary ? `<p class="product-summary">${summary}</p>` : ''}${description}${passport}${noteList}<p class="hint vintage-terms">${escapeHtml(VINTAGE_NOTICE)}</p>${relatedMarkup(product)}${buyPanel(product)}`;
     const slidesEl = sheetBody.querySelector('#slides');
     slidesEl?.addEventListener('scroll', () => {
       const index = Math.round(slidesEl.scrollLeft / (slidesEl.clientWidth || 1));
@@ -364,30 +372,79 @@ function productView(product) {
   };
 }
 
+let catalogRequest = null, cartBusy = false, cartNotice = '', cartCopyText = '';
+const lastKnownProducts = new Map();
+async function fetchCatalog() {
+  if (catalogRequest) return catalogRequest;
+  catalogRequest = (async () => {
+    const response = await fetch('/data/products.json', { cache: 'no-store' });
+    if (!response.ok) throw new Error('Не удалось проверить наличие.');
+    const data = await response.json();
+    if (!Array.isArray(data)) throw new Error('Не удалось проверить наличие.');
+    for (const product of products) lastKnownProducts.set(product.id, product);
+    products = data.filter(product => product && product.active);
+    catalogReady = true;
+    for (const product of products) lastKnownProducts.set(product.id, product);
+    renderToolbar(); renderProducts(); updateCount();
+  })();
+  try { await catalogRequest; } finally { catalogRequest = null; }
+}
+const cartSignature = () => JSON.stringify(cart.map(({id}) => { const p = byId(id); return [id, p?.price, p?.title, !!orderable(p)]; }));
+async function refreshCart() {
+  const before = cartSignature();
+  await fetchCatalog();
+  return before !== cartSignature();
+}
+function renderCurrentCart() {
+  if (sheetOpen && sheetRenderer === cartView) {
+    const focused = sheetBody.contains(document.activeElement) ? document.activeElement.id : '';
+    cartView();
+    if (focused) {
+      const title = sheetBody.querySelector('#sheet-title'); if (title) title.tabIndex = -1;
+      const target = sheetBody.querySelector('#' + focused);
+      (target && !target.disabled ? target : title)?.focus({preventScroll:true});
+    }
+  }
+}
+async function openCart() {
+  cartNotice = ''; cartCopyText = ''; cartBusy = true;
+  openSheet(cartView);
+  try { if (await refreshCart()) cartNotice = 'Наличие или цены обновились. Проверьте список перед заказом.'; }
+  catch { cartNotice = 'Не удалось проверить наличие. Проверьте соединение и попробуйте ещё раз.'; }
+  finally { cartBusy = false; renderCurrentCart(); }
+}
+async function prepareOrder() {
+  if (cartBusy || ADMIN_PREVIEW) return null;
+  const generation = sheetGeneration;
+  cartBusy = true; cartNotice = ''; cartCopyText = ''; renderCurrentCart();
+  try {
+    const changed = await refreshCart();
+    if (generation !== sheetGeneration || !cart.length) return null;
+    if (cart.some(item => !orderable(byId(item.id)))) { cartNotice = 'Некоторые вещи уже недоступны. Уберите их из заказа.'; return null; }
+    if (changed) { cartNotice = 'Наличие или цены изменились. Проверьте итог и нажмите оформить ещё раз.'; return null; }
+    return sellerTelegram ? `https://t.me/${sellerTelegram}?text=${encodeURIComponent(buildMessage())}` : null;
+  } catch { cartNotice = 'Не удалось проверить наличие. Проверьте соединение и попробуйте ещё раз.'; return null; }
+  finally { cartBusy = false; renderCurrentCart(); }
+}
 function cartView() {
+  sheet.classList.add('narrow'); sheetBody.className = 'sheet-body'; sheetBody.dataset.product = ''; sheetBody.dataset.view = 'cart';
   if (!catalogReady) {
-    sheet.classList.add('narrow');
-    sheetBody.className = 'sheet-body';
-    sheetBody.dataset.product = '';
-    sheetBody.innerHTML = '<h2 id="sheet-title">Корзина</h2><p class="hint">Каталог ещё недоступен. Дождитесь загрузки или обновите страницу. Ваш список вещей сохранён.</p>';
+    sheetBody.innerHTML = `<h2 id="sheet-title">Корзина</h2><p class="hint" role="status">${cartNotice || 'Проверяем наличие… Ваш список вещей сохранён.'}</p><button class="ghost" id="refresh-cart" type="button" ${cartBusy ? 'disabled' : ''}>Проверить ещё раз</button>`;
     return;
   }
-  cart = cart.filter(item => byId(item.id) && !byId(item.id).sold && !byId(item.id).reserved);
-  saveCart();
-  sheet.classList.add('narrow');
-  sheetBody.className = 'sheet-body';
-  sheetBody.dataset.product = '';
   if (!cart.length) {
     sheetBody.innerHTML = '<h2 id="sheet-title">Корзина</h2><div class="empty-cart"><p>В корзине пока пусто. Выберите вещь в каталоге.</p><button class="primary" id="to-catalog" type="button">Перейти в каталог</button></div>';
     return;
   }
+  const unavailable = cart.some(item => !orderable(byId(item.id)));
   const lines = cart.map(item => {
-    const product = byId(item.id);
+    const current = byId(item.id), product = current || lastKnownProducts.get(item.id) || {title:'Вещь больше недоступна',price:0};
+    const reason = !current ? 'Больше не в продаже' : current.sold ? 'Продано' : current.reserved ? 'Забронировано' : '';
     const sub = [product.size && `Размер: ${product.size}`, product.brand, product.condition].filter(Boolean).join(' · ');
-    return `<div class="cart-line"><div class="cart-thumb${hasCut(product) ? ' cut' : ''}">${imageMarkup(product)}</div><div><h3>${escapeHtml(product.title)}</h3>${sub ? `<p class="cart-sub">${escapeHtml(sub)}</p>` : ''}<button class="remove" type="button" data-remove="${escapeHtml(item.id)}">Убрать</button></div><strong>${currency(product.price)}</strong></div>`;
+    return `<div class="cart-line${reason ? ' unavailable' : ''}"><div class="cart-thumb${hasCut(product) ? ' cut' : ''}">${imageMarkup(product)}</div><div><h3>${escapeHtml(product.title)}</h3>${sub ? `<p class="cart-sub">${escapeHtml(sub)}</p>` : ''}${reason ? `<p class="cart-unavailable">${reason}</p>` : ''}<button class="remove" type="button" data-remove="${escapeHtml(item.id)}">Убрать</button></div><strong>${reason ? '—' : currency(product.price)}</strong></div>`;
   }).join('');
-  const link = sellerTelegram ? `https://t.me/${sellerTelegram}?text=${encodeURIComponent(buildMessage())}` : '#';
-  sheetBody.innerHTML = `<h2 id="sheet-title">Корзина</h2><p class="cart-count">${cart.length} ${plural(cart.length, 'вещь', 'вещи', 'вещей')} · каждая в единственном экземпляре</p>${lines}<p class="hint">${escapeHtml(VINTAGE_NOTICE)}</p><div class="total-row"><span>Итого</span><strong>${currency(cartTotal())}</strong></div><div class="buy"><a class="primary wide" id="telegram-order" href="${link}" target="_blank" rel="noopener noreferrer" aria-disabled="${String(!sellerTelegram)}">Оформить в Telegram</a><p class="hint">${sellerTelegram ? 'Откроется чат с готовым списком вещей. Оплату и доставку согласуем лично.' : 'Telegram продавца пока не настроен.'}</p></div>`;
+  const disabled = !sellerTelegram || unavailable || cartBusy;
+  sheetBody.innerHTML = `<h2 id="sheet-title">Корзина</h2><p class="cart-count">${cart.length} ${plural(cart.length, 'вещь', 'вещи', 'вещей')} · каждая в единственном экземпляре</p>${lines}<p class="cart-notice" role="status">${escapeHtml(cartBusy ? 'Проверяем наличие и цены…' : cartNotice || (unavailable ? 'Уберите недоступные вещи, чтобы оформить заказ.' : ''))}</p>${cartCopyText ? `<label class="copy-order-label" for="order-text">Текст заказа — выделите и скопируйте</label><textarea id="order-text" class="order-text" readonly rows="8">${escapeHtml(cartCopyText)}</textarea>` : ''}<div class="total-row"><span>Итого</span><strong>${currency(cartTotal())}</strong></div><p class="hint vintage-terms">${escapeHtml(VINTAGE_NOTICE)}</p><div class="buy"><button class="primary wide" id="telegram-order" type="button" aria-disabled="${disabled}" ${disabled ? 'disabled' : ''}>${cartBusy ? 'Проверяем…' : 'Оформить в Telegram'}</button><button class="ghost wide" id="copy-order" type="button" ${disabled ? 'disabled' : ''}>Скопировать заказ</button><p class="hint">${sellerTelegram ? 'Оплату и доставку согласуем лично в Telegram.' : 'Telegram продавца пока не настроен.'}</p></div>`;
 }
 
 function buildMessage() {
@@ -462,7 +519,7 @@ const slideTo = index => {
   slidesEl?.scrollTo({ left: Number(index) * slidesEl.clientWidth, behavior: reduceMotion.matches ? 'auto' : 'smooth' });
 };
 
-sheetBody.addEventListener('click', event => {
+sheetBody.addEventListener('click', async event => {
   const related = event.target.closest('.related [data-id]');
   if (related && byId(related.dataset.id)) { openSheet(productView(byId(related.dataset.id))); sheetBody.scrollTop = 0; return; }
   const dot = event.target.closest('[data-slide]');
@@ -499,7 +556,11 @@ sheetBody.addEventListener('click', event => {
       sheetBody.querySelectorAll(`[data-note="${noteButton.dataset.note}"]`).forEach(el => el.classList.add('on'));
       const toggleEl = sheetBody.querySelector('#toggle-pins');
       if (toggleEl && toggleEl.getAttribute('aria-pressed') !== 'true') toggleEl.click();
-      if (noteButton.classList.contains('note')) slideTo(noteButton.dataset.img);
+      if (noteButton.classList.contains('note')) {
+        slideTo(noteButton.dataset.img);
+        sheetBody.scrollTo({ top: 0, behavior: reduceMotion.matches ? 'auto' : 'smooth' });
+        sheetBody.querySelector('#slides')?.focus({ preventScroll: true });
+      }
     }
     return;
   }
@@ -513,12 +574,13 @@ sheetBody.addEventListener('click', event => {
     sheetBody.querySelector('#open-cart')?.focus({ preventScroll: true });
     return;
   }
-  if (event.target.closest('#open-cart')) { openSheet(cartView); return; }
+  if (event.target.closest('#open-cart') || event.target.closest('#refresh-cart')) { await openCart(); return; }
   if (event.target.closest('#keep-looking')) { closeSheet(); return; }
   if (event.target.closest('#to-catalog')) { closeSheet(); const catalog = document.querySelector('#catalog'); if (catalog) catalog.scrollIntoView({ behavior: reduceMotion.matches ? 'auto' : 'smooth' }); else location.href = '/'; return; }
   const remove = event.target.closest('[data-remove]');
   if (remove) {
     cart = cart.filter(item => item.id !== remove.dataset.remove);
+    cartCopyText = ''; cartNotice = '';
     saveCart();
     const index = [...sheetBody.querySelectorAll('[data-remove]')].indexOf(remove);
     cartView();
@@ -526,8 +588,19 @@ sheetBody.addEventListener('click', event => {
     (remaining[Math.min(index, remaining.length - 1)] || sheetBody.querySelector('#to-catalog'))?.focus({ preventScroll: true });
     return;
   }
-  const order = event.target.closest('#telegram-order');
-  if (order?.getAttribute('aria-disabled') === 'true') event.preventDefault();
+  const order = event.target.closest('#telegram-order'), copy = event.target.closest('#copy-order');
+  if (order || copy) {
+    event.preventDefault();
+    const href = await prepareOrder();
+    if (!href) return;
+    if (order) location.assign(href);
+    else {
+      try { await navigator.clipboard.writeText(buildMessage()); cartNotice = 'Заказ скопирован. Отправьте его продавцу в Telegram.'; }
+      catch { cartCopyText = buildMessage(); cartNotice = 'Браузер не разрешил копирование. Скопируйте текст ниже вручную.'; }
+      renderCurrentCart();
+      if (cartCopyText) { const field = sheetBody.querySelector('#order-text'); field?.focus(); field?.select(); }
+    }
+  }
 });
 
 
@@ -537,7 +610,7 @@ const FAQ = [
   ['Что значит «в одном экземпляре»?', 'Каждая вещь винтажная и существует в единственном экземпляре. Когда вещь уходит, она переезжает в раздел «Проданное».'],
   ['Что значит «Бронь»?', 'Вещь придержана за покупателем. Пока бронь не снята, заказать её нельзя.'],
   ['Как выбрать размер?', 'В паспорте вещи указаны замеры в сантиметрах. Сравните их с вашей любимой вещью, а не ориентируйтесь на размер на бирке: у винтажа он часто отличается от современного.'],
-  ['Что такое дефекты на фото?', 'Мы честно отмечаем потёртости, пятна и следы ремонта. Нажмите «Показать дефекты» на фото вещи.'],
+  ['Что такое дефекты на фото?', 'Мы честно отмечаем потёртости, пятна и следы ремонта. В карточке есть оригинальные фото и список дефектов. Нажмите на дефект, чтобы перейти к нужному снимку.'],
   ['Оплата и доставка?', 'Согласуем лично в Telegram.'],
   ['Вещи винтажные?', VINTAGE_NOTICE],
   ['Можно вернуть вещь?', RETURN_NOTICE],
@@ -557,7 +630,7 @@ document.addEventListener('click', event => {
   if (go.dataset.go === 'cookies') { event.preventDefault(); openCookieSettings(); }
 });
 
-document.querySelector('#cart-btn').addEventListener('click', () => openSheet(cartView));
+document.querySelector('#cart-btn').addEventListener('click', openCart);
 
 /* ---------- cookies and analytics consent ---------- */
 // Choice lives in localStorage ({ analytics, at }). Yandex Metrica loads only after "Принять" and only if a counter id is set in config.json.
@@ -634,11 +707,8 @@ async function init() {
   try {
     const config = await fetch('/config.json').then(response => response.json());
     sellerTelegram = /^[A-Za-z0-9_]{5,32}$/.test(config.sellerTelegram || '') ? config.sellerTelegram : '';
-    const response = await fetch('/data/products.json', { cache: 'no-store' });
-    if (!response.ok) throw new Error('Каталог недоступен.');
-    products = (await response.json()).filter(product => product.active);
-    catalogReady = true;
-    renderToolbar(); renderProducts(); updateCount();
+    await fetchCatalog();
+    renderCurrentCart();
     const channel = /^[A-Za-z0-9_]{5,32}$/.test(config.telegramChannel || '') ? config.telegramChannel : '';
     // the footer Telegram link leads to the shop channel; without one it falls back to the seller's chat
     const channelLink = document.querySelector('#footer-channel');
@@ -654,12 +724,24 @@ async function init() {
     if (targetGrid) targetGrid.innerHTML = `<p class="empty">${escapeHtml(error.message)} Попробуйте обновить страницу.</p>`;
   }
 }
-init();
+if (ADMIN_PREVIEW) {
+  document.body.classList.add('admin-preview');
+  window.addEventListener('message', event => {
+    if (event.origin !== location.origin || event.source !== window.parent || event.data?.type !== 'rewear-admin-preview') return;
+    const product = event.data.product;
+    if (!product || typeof product.title !== 'string' || !Number.isFinite(product.price)) return;
+    products = [product]; catalogReady = true;
+    openSheet(productView(product));
+  });
+  window.parent.postMessage({type:'rewear-preview-ready'}, location.origin);
+} else {
+  init();
+}
 
 /* ---------- hero: sunlight gliding over the rug (phones for now) ---------- */
 (() => {
   const video = document.querySelector('#hero-video');
-  if (!video) return;
+  if (!video || ADMIN_PREVIEW) return;
   const phone = matchMedia('(max-width: 719px)');
   const calm = matchMedia('(prefers-reduced-motion: reduce)');
   const lean = navigator.connection?.saveData;

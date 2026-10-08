@@ -6,9 +6,9 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#eee8dc">
   <title>Админ-панель — REWEAR VINTAGE</title>
-  <link rel="stylesheet" href="/styles.css?v=20261008-consent">
-  <link rel="stylesheet" href="/admin/admin.css?v=20261008-consent">
-  <script src="/admin/admin.js?v=20261008-consent" type="module"></script>
+  <link rel="stylesheet" href="/styles.css?v=20261008-audit-fixes">
+  <link rel="stylesheet" href="/admin/admin.css?v=20261008-audit-fixes">
+  <script src="/admin/admin.js?v=20261008-audit-fixes" type="module"></script>
 </head>
 <body class="admin">
   <header class="admin-bar">
@@ -53,27 +53,30 @@
     </form>
 
     <section id="panel" hidden>
-      <div class="panel-head">
+      <div class="panel-head" id="panel-head">
         <h1>Товары</h1>
         <button class="btn" id="add" type="button">Добавить вещь</button>
       </div>
+      <button class="btn ghost" id="conflict-reload" type="button" hidden>Загрузить актуальную версию</button>
       <form class="card editor" id="editor" hidden>
         <h2 id="editor-title">Новая вещь</h2>
         <div class="editor-actions"><p class="fine" id="editor-state" role="status"></p><div class="row">
           <button class="btn" type="submit" id="save">Сохранить</button>
-          <button class="btn ghost" type="button" id="cancel">Отмена</button>
+          <button class="btn" type="submit" id="publish">Опубликовать</button>
+          <button class="btn ghost" type="button" id="preview-open">Предпросмотр</button>
+          <button class="btn ghost" type="button" id="cancel">К товарам</button>
         </div></div>
         <label>Название<input name="title" required maxlength="100"></label>
         <label>Цена, ₽<input name="price" type="number" inputmode="numeric" min="1" step="1" required></label>
-        <fieldset class="photos">
-          <legend>Фото (до 8): первое показывается на обложке</legend>
-          <ol class="photo-strip" id="photo-strip"></ol>
-          <label class="btn ghost file">Добавить фото<input type="file" id="photo-input" aria-label="Добавить фотографии вещи" accept="image/*" multiple></label>
-        </fieldset>
         <div class="pair">
           <label>Категория<select name="category"><option value="">Не выбрана</option><option>Верхняя одежда</option><option>Штаны</option><option>Обувь</option><option>Аксессуары</option></select></label>
           <label>Размер<input name="size" maxlength="20" placeholder="L (если известен)"></label>
         </div>
+        <fieldset class="photos">
+          <legend>Фото (до 8): первое используется без отдельной обложки</legend>
+          <ol class="photo-strip" id="photo-strip"></ol>
+          <label class="btn ghost file">Добавить фото<input type="file" id="photo-input" aria-label="Добавить фотографии вещи" accept="image/*" multiple></label>
+        </fieldset>
         <label>Состояние<input name="condition" maxlength="60" placeholder="Отличное"></label>
         <label>Замеры, см<input name="measures" maxlength="200" placeholder="Плечи 52 · Рукав 62 · Длина 70"></label>
         <details class="fold"><summary>Описание и паспорт вещи</summary>
@@ -84,8 +87,10 @@
           <label>Происхождение<input name="origin" maxlength="60" placeholder="Япония"></label>
         </div>
         </details>
+        <figure class="current-cover"><img id="current-cover" alt="Текущая обложка каталога"><figcaption class="fine">Обложка каталога</figcaption></figure>
+        <details class="fold" id="cut-tools"><summary>Изменить обложку</summary>
         <fieldset class="photos" id="cut-box">
-          <legend>Обложка каталога</legend>
+          <legend>Отдельная обложка не меняется при перестановке фото</legend>
           <label class="check"><input type="checkbox" id="cut-auto" checked> Вырезать автоматически, когда добавлено первое фото</label>
           <div class="cut-compare" id="cut-compare" hidden>
             <figure><div class="cut-pane"><img id="cut-orig" alt="Оригинал"></div><figcaption>Оригинал</figcaption></figure>
@@ -103,18 +108,22 @@
           </div>
           <details class="fold"><summary>Как это работает</summary><p class="fine">Вырезка идёт прямо в вашем браузере, фото никуда не отправляются. Первый раз скачивается модель (≈45 МБ), потом она берётся из памяти браузера. Всегда сравните результат с оригиналом: если потерялась деталь или остался кусок ковра, выберите «Оставить фото на ковре» или загрузите своё превью.</p></details>
         </fieldset>
+        </details>
         <details class="fold" id="pin-section" hidden><summary>Дефекты и отметки</summary>
           <p class="fine">Добавьте отметку кнопкой или нажмите на фото. Подпишите каждый дефект.</p>
           <button class="btn ghost" type="button" id="pin-add">Добавить дефект в центре фото</button>
-          <details><summary>Как показываются дефекты</summary><p class="fine">Нажмите на фото, чтобы отметить <b>дефект</b> (пятно, потёртость, дыру). Подпишите каждый. Если у вещи есть вырезанное превью, на сайте показывается только оно, а дефекты идут списком под фото. Без превью сайт показывает оригиналы, и дефекты видны метками по кнопке «Показать дефекты».</p></details>
+          <details><summary>Как показываются дефекты</summary><p class="fine">Нажмите на фото, чтобы отметить <b>дефект</b> (пятно, потёртость, дыру). Подпишите каждый. Вырезанная обложка идёт первой, затем — оригинальные фото. Нажатие на дефект в карточке откроет нужный оригинал с меткой.</p></details>
           <div class="stage" id="stage"><img class="preview" id="preview" alt="Выбранное фото"><span id="stage-pins"></span></div>
           <ol class="pin-list" id="pin-list"></ol>
         </details>
 
       </form>
       <ul class="list" id="list"></ul>
-      <p class="fine">После сохранения изменения сразу появятся на сайте.</p>
+      <p class="fine" id="catalog-hint">Опубликованные изменения сразу появятся на сайте.</p>
     </section>
   </main>
+  <div class="preview-modal" id="preview-modal" role="dialog" aria-modal="true" aria-label="Предпросмотр вещи" hidden>
+    <div class="preview-shell"><button class="btn" id="preview-close" type="button">Закрыть предпросмотр</button><iframe id="preview-frame" title="Вещь на витрине" src="about:blank"></iframe></div>
+  </div>
 </body>
 </html>

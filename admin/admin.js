@@ -7,7 +7,7 @@ const MAX_PHOTOS = 8;
 // photos: [{ src }] where src is an existing /images path or a new JPEG data URL; notes point at a photo object so reordering keeps them attached
 let products = [], editingId = null, photos = [], notes = [], selected = 0;
 let cut = { path: '', data: '', changed: false, pending: null, busy: false };   // transparent preview: saved path, new data URL, or removal; pending = automatic result waiting for a decision
-let autoTried = false;
+let autoTried = false, recovering = false, editingRevision = null, editingActive = false, conflictProduct = null;
 let editorGeneration = 0, cutGeneration = 0;
 let uploads = 0, mutating = false, saving = false, baseline = '', renderVersion = 0;
 const saveDisabled = new Map();
@@ -16,12 +16,13 @@ function snapshot() {
 }
 function dirty() { return !editor.hidden && (uploads > 0 || cut.busy || !!cut.pending || snapshot() !== baseline); }
 function editorState() {
+  $('publish').disabled = $('preview-open').disabled = uploads > 0 || cut.busy || !!cut.pending || saving || mutating;
   $('save').disabled = uploads > 0 || cut.busy || !!cut.pending || saving || mutating;
   $('cancel').disabled = saving;
-  $('cut-run').disabled = cut.busy || saving || !photos.length;
+  $('cut-run').disabled = cut.busy || saving || !photos.length || !editor.category.value;
   $('photo-input').disabled = uploads > 0 || saving;
   for (const control of editor.querySelectorAll?.('input, textarea, select, button') || []) {
-    if (['save', 'cancel', 'photo-input', 'cut-run'].includes(control.id)) continue;
+    if (['save', 'publish', 'preview-open', 'cancel', 'photo-input', 'cut-run'].includes(control.id)) continue;
     if (saving) { if (!saveDisabled.has(control)) saveDisabled.set(control, control.disabled); control.disabled = true; }
     else if (saveDisabled.has(control)) { control.disabled = saveDisabled.get(control); saveDisabled.delete(control); }
   }
@@ -38,7 +39,8 @@ function invalidateEditor() {
   cutGeneration++;
   cut = { ...cut, busy: false };
 }
-function closeEditor() { invalidateEditor(); editor.hidden = true; baseline = ""; }
+function catalogVisibility() { $('panel-head').hidden = list.hidden = $('catalog-hint').hidden = !editor.hidden; }
+function closeEditor() { closePreview(); invalidateEditor(); editor.hidden = true; recovering = false; baseline = ''; catalogVisibility(); $('add').focus(); }
 
 const photosOf = product => (Array.isArray(product.images) && product.images.length ? product.images : product.image ? [product.image] : []);
 
@@ -53,19 +55,20 @@ async function api(path, options = {}) {
   const data = await response.json().catch(() => ({}));
   if (response.status === 401 && !path.endsWith('/login')) { showLogin(); throw new Error(''); }
   if (response.status === 403 && data.mustChange) { showAccount(true); throw new Error(''); }
-  if (!response.ok) throw new Error(data.error || 'Ошибка запроса.');
+  if (!response.ok) { const error = new Error(data.error || 'Ошибка запроса.'); error.conflict = data.conflict; error.product = data.product; throw error; }
   return data;
 }
 
 function showLogin() {
-  closeEditor();
+  closePreview(); recovering = !editor.hidden;
+  if (recovering) say('Сессия истекла. Черновик сохранён: войдите и продолжите редактирование.');
   panel.hidden = true; barActions.hidden = true; loginForm.hidden = false; $('account-form').hidden = true;
   loginForm.password.value = '';
 }
 
 function showPanel() {
   loginForm.hidden = true; panel.hidden = false; barActions.hidden = false; $('account-form').hidden = true; $('open-account').hidden = false;
-  render();
+  recovering = false; catalogVisibility(); render();
 }
 
 function button(label, onClick, extra = '') {
@@ -107,7 +110,7 @@ function render() {
       const message = replacingEditor ? 'Изменения не сохранены. Закрыть редактор?' : 'В редакторе есть несохранённые изменения. Выполнить действие списка? Редактор останется открытым.';
       if (!mutating && !saving && version === renderVersion && leaveEditor(message)) action();
     };
-    const put = body => mutate(`/api/admin/products?id=${product.id}`, 'PUT', body);
+    const put = body => mutate(`/api/admin/products?id=${product.id}`, 'PUT', { ...body, revision: product.revision });
     const edit = button('Изменить', guarded(() => openEditor(product), true)); edit.disabled = mutating;
     const menu = document.createElement('details'); menu.className = 'item-more';
     const summary = document.createElement('summary'); summary.textContent = 'Ещё';
@@ -116,7 +119,7 @@ function render() {
       button(product.reserved ? 'Снять бронь' : 'Бронь', guarded(() => put({ reserved: !product.reserved }))),
       button(product.sold ? 'Вернуть в продажу' : 'Продано', guarded(() => put({ sold: !product.sold }))),
       button(product.active ? 'Скрыть' : 'Показать', guarded(() => put({ active: !product.active }))),
-      button('Удалить', guarded(() => { if (confirm(`Удалить «${product.title}» навсегда?`)) mutate(`/api/admin/products?id=${product.id}`, 'DELETE'); }), 'danger')
+      button('Удалить', guarded(() => { if (confirm(`Удалить «${product.title}» навсегда?`)) mutate(`/api/admin/products?id=${product.id}`, 'DELETE', { revision: product.revision }); }), 'danger')
     );
     for (const control of actions.children || []) control.disabled = mutating;
     menu.append(summary, actions); row.append(edit, menu);
@@ -135,7 +138,8 @@ async function mutate(path, method, body) {
     say('Сохранено.');
     return true;
   } catch (error) {
-    if (error.message) say(error.message, true);
+    if (error.conflict) { conflictProduct = error.product; $('conflict-reload').hidden = false; say(editor.hidden ? 'Вещь изменена в другом окне. Загрузите актуальную версию и повторите действие.' : 'Вещь изменена в другом окне. Ваши изменения остались в редакторе. Загрузите актуальную версию, чтобы продолжить.', true); }
+    else if (error.message) say(error.message, true);
     return false;
   } finally { mutating = false; render(); editorState(); }
 }
@@ -144,7 +148,8 @@ async function mutate(path, method, body) {
 function openEditor(product) {
   if (mutating || saving) return;
   invalidateEditor();
-  editingId = product?.id ?? null;
+  closePreview(); editingId = product?.id ?? null; editingRevision = product?.revision ?? null; editingActive = !!product?.active; conflictProduct = null; $('conflict-reload').hidden = true;
+  $('save').textContent = editingActive ? 'Сохранить' : 'Сохранить черновик'; $('publish').hidden = editingActive;
   $('save').disabled = false;
   $('editor-title').textContent = product ? 'Изменить вещь' : 'Новая вещь';
   editor.title.value = product?.title ?? '';
@@ -161,7 +166,7 @@ function openEditor(product) {
   $('cut-kind').value = kindForCategory(product?.category);
   renderCut();
   renderPhotos();
-  editor.hidden = false;
+  editor.hidden = false; catalogVisibility();
   baseline = snapshot(); editorState();
   editor.title.focus({ preventScroll: true });
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -172,6 +177,8 @@ function say2(text) { const el = $('cut-status'); el.hidden = !text; el.textCont
 
 function renderCut() {
   const src = cut.pending?.dataUrl || cut.data || cut.path;
+  $('current-cover').hidden = !(cut.data || cut.path || photos.length);
+  $('current-cover').src = cut.data || cut.path || photos[0]?.src || '';
   const original = photos[selected]?.src || photos[0]?.src || '';
   $('cut-compare').hidden = !(src && original);
   if (src) $('cut-img').src = src;
@@ -181,7 +188,7 @@ function renderCut() {
   $('cut-problems').hidden = !problems.length;
   $('cut-problems').replaceChildren(...problems.map(text => Object.assign(document.createElement('li'), { textContent: text })));
   $('cut-run').hidden = Boolean(cut.pending);
-  $('cut-run').disabled = cut.busy || saving || !photos.length;
+  $('cut-run').disabled = cut.busy || saving || !photos.length || !editor.category.value;
   $('cut-run').textContent = cut.busy ? 'Вырезаем…' : (cut.data || cut.path ? 'Вырезать заново' : 'Вырезать автоматически');
   $('cut-accept').hidden = !cut.pending;
   $('cut-accept').textContent = problems.length ? 'Всё равно использовать' : 'Использовать это превью';
@@ -193,17 +200,18 @@ function renderCut() {
 
 async function runCut() {
   if (cut.busy || !photos.length) return;
+  if (!editor.category.value) { say2('Выберите категорию перед вырезкой.'); return; }
   const generation = editorGeneration, operation = ++cutGeneration;
   const photo = photos[selected], src = photo.src, kind = $('cut-kind').value;
   const current = () => generation === editorGeneration && operation === cutGeneration;
-  const currentSource = () => current() && photos[selected] === photo && photo.src === src;
-  cut = { ...cut, busy: true, pending: null };
+  const currentSource = () => current() && photos[selected] === photo && photo.src === src && $('cut-kind').value === kind;
+  cut = { ...cut, busy: true, pending: null, source: photo, kind };
   renderCut();
   try {
     const result = await cutOut(src, kind, text => { if (currentSource()) say2(text); });
     if (!currentSource()) return;
     // a clean result is taken at once (still shown next to the original); one with warnings waits for the owner
-    if (result.problems.length) { cut = { ...cut, pending: result }; say2('Есть замечания к вырезке: посмотрите на края и решите.'); }
+    if (result.problems.length) { $('cut-tools').open = true; cut = { ...cut, pending: result }; say2('Есть замечания к вырезке: посмотрите на края и решите.'); }
     else { cut = { ...cut, data: result.dataUrl, changed: true, pending: null }; say2('Готово, замечаний нет. Всё равно сравните с оригиналом и нажмите «Сохранить».'); }
   } catch (error) {
     if (currentSource()) say2(`Не получилось вырезать: ${error.message || 'ошибка'}. Фото останется на ковре, или загрузите своё превью.`);
@@ -242,25 +250,28 @@ $('cut-input').addEventListener('change', async () => {
 $('cut-remove').addEventListener('click', () => { cutGeneration++; cut = { path: '', data: '', changed: true, pending: null, busy: false }; say2(''); renderCut(); });
 $('cut-run').addEventListener('click', runCut);
 $('cut-accept').addEventListener('click', () => { cut = { ...cut, data: cut.pending.dataUrl, changed: true, pending: null }; say2('Превью принято. Нажмите «Сохранить».'); renderCut(); });
-$('cut-reject').addEventListener('click', () => { cut = { ...cut, pending: null }; say2('Оставляем фото на ковре (или загрузите своё превью).'); renderCut(); });
-$('cut-kind').addEventListener('change', () => { if (cut.data && !cut.path) say2('Тип вещи изменён: нажмите «Вырезать заново», чтобы применить масштаб.'); });
-editor.category.addEventListener('change', () => { $('cut-kind').value = kindForCategory(editor.category.value); });
+$('cut-reject').addEventListener('click', () => { clearCut(); say2('Оставляем фото на ковре (или загрузите своё превью).'); renderCut(); });
+function clearCut() { cutGeneration++; cut = { path: '', data: '', changed: true, pending: null, busy: false }; }
+function typeChanged() { if (cut.path || cut.data || cut.pending || cut.busy) { clearCut(); say2('Тип вещи изменён. Обложка удалена: вырежьте заново или загрузите своё превью.'); renderCut(); } else editorState(); }
+$('cut-kind').addEventListener('change', typeChanged);
+editor.category.addEventListener('change', () => { $('cut-kind').value = kindForCategory(editor.category.value); typeChanged(); });
 try { $('cut-auto').checked = localStorage.getItem('rewear-cut-auto') !== '0'; } catch {}
 $('cut-auto').addEventListener('change', () => { try { localStorage.setItem('rewear-cut-auto', $('cut-auto').checked ? '1' : '0'); } catch {} });
 
+function focusPhoto(index) { (strip.children[index]?.children[0] || photoInput).focus(); }
 function renderPhotos() {
   selected = Math.min(selected, Math.max(photos.length - 1, 0));
   strip.replaceChildren(...photos.map((photo, i) => {
     const li = document.createElement('li');
     li.className = i === selected ? 'on' : '';
     const pick = document.createElement('button');
-    pick.type = 'button'; pick.className = 'photo-pick'; pick.setAttribute('aria-label', `Фото ${i + 1}${i === 0 ? ' (обложка)' : ''}`);
+    pick.type = 'button'; pick.className = 'photo-pick'; pick.setAttribute('aria-label', `Фото ${i + 1}${i === 0 ? ' (первое оригинальное фото)' : ''}`);
     const img = document.createElement('img'); img.src = photo.src; img.alt = '';
     pick.append(img);
-    pick.addEventListener('click', () => { selected = i; renderPhotos(); });
+    pick.addEventListener('click', () => { selected = i; renderPhotos(); focusPhoto(i); });
     const tools = document.createElement('div'); tools.className = 'photo-tools';
-    const move = (label, delta) => { const el = button(label, () => { const j = i + delta; [photos[i], photos[j]] = [photos[j], photos[i]]; selected = j; renderPhotos(); }); el.setAttribute('aria-label', delta < 0 ? 'Сдвинуть влево' : 'Сдвинуть вправо'); el.disabled = i + delta < 0 || i + delta >= photos.length; return el; };
-    const del = button('×', () => { notes = notes.filter(note => note.photo !== photo); photos.splice(i, 1); renderPhotos(); });
+    const move = (label, delta) => { const el = button(label, () => { const j = i + delta; [photos[i], photos[j]] = [photos[j], photos[i]]; selected = j; renderPhotos(); focusPhoto(j); }); el.setAttribute('aria-label', delta < 0 ? 'Сдвинуть влево' : 'Сдвинуть вправо'); el.disabled = i + delta < 0 || i + delta >= photos.length; return el; };
+    const del = button('×', () => { notes = notes.filter(note => note.photo !== photo); photos.splice(i, 1); if (cut.path || cut.data || cut.pending || cut.busy) { clearCut(); say2('Фото удалено. Создайте обложку заново.'); } renderPhotos(); focusPhoto(Math.min(i, photos.length - 1)); });
     del.setAttribute('aria-label', 'Убрать фото');
     tools.append(move('←', -1), move('→', 1), del);
     li.append(pick, tools);
@@ -307,7 +318,7 @@ photoInput.addEventListener('change', async () => {
   if (!current()) return;
   if (firstAdded !== null) selected = firstAdded;
   renderPhotos();
-  if ($('cut-auto').checked && !autoTried && !cut.data && !cut.path && photos.length) { autoTried = true; selected = 0; renderPhotos(); runCut(); }
+  if ($('cut-auto').checked && !autoTried && !cut.data && !cut.path && photos.length && editor.category.value) { autoTried = true; selected = 0; renderPhotos(); runCut(); }
   } finally { if (current()) { uploads--; editorState(); } }
 });
 
@@ -327,7 +338,7 @@ function renderNotes() {
     input.value = note.text; input.maxLength = 80; input.placeholder = 'Что за дефект? Например: пятно у манжеты';
     input.setAttribute('aria-label', `Подпись точки ${i + 1} (фото ${photos.indexOf(note.photo) + 1})`);
     input.addEventListener('input', () => { note.text = input.value; editorState(); });
-    const del = button('×', () => { notes.splice(i, 1); renderNotes(); editorState(); });
+    const del = button('×', () => { notes.splice(i, 1); renderNotes(); editorState(); (pinList.children[Math.min(i, notes.length - 1)]?.children[1] || $('pin-add')).focus(); });
     del.setAttribute('aria-label', 'Убрать точку');
     row.append(num, input, del);
     const where = document.createElement('small'); where.textContent = `фото ${photos.indexOf(note.photo) + 1}`;
@@ -364,10 +375,16 @@ editor.addEventListener('submit', async event => {
   if (uploads || saving || mutating) { say('Подождите, идёт загрузка или сохранение.', true); return; }
   if (cut.pending) { say('Сначала решите по превью: «Использовать» или «Оставить фото на ковре».', true); return; }
   if (cut.busy) { say('Подождите, идёт вырезка.', true); return; }
+  const publish = event.submitter === $('publish');
+  if (!editor.title.value.trim() || Number(editor.price.value) < 1) return say('Укажите название и цену больше нуля.', true);
+  if (publish && (!editor.condition.value.trim() || !(photos.length || cut.data || cut.path))) return say('Для публикации добавьте фото или обложку и укажите состояние.', true);
+  if (conflictProduct) return say('Загрузите актуальную версию перед сохранением.', true);
   const generation = editorGeneration;
   const save = $('save');
   saving = true; editorState();
   const body = { title: editor.title.value, price: Number(editor.price.value), description: editor.description.value, images: photos.map(photo => photo.src) };
+  body.active = publish || editingActive;
+  if (editingId) body.revision = editingRevision;
   for (const name of PASSPORT) body[name] = editor[name].value;
   if (cut.changed) body.preview = cut.data;   // '' removes the preview
   body.notes = notes.filter(note => note.text.trim()).map(note => ({ x: note.x, y: note.y, text: note.text, type: note.type, img: photos.indexOf(note.photo) }));
@@ -420,7 +437,8 @@ let forcedChange = false;
 
 async function showAccount(forced = false) {
   if (!forced && (mutating || !leaveEditor())) return;
-  closeEditor();
+  closePreview();
+  if (forced) recovering = !editor.hidden; else closeEditor();
   forcedChange = forced;
   let info;
   try { info = await api('/api/admin/account'); } catch (error) { if (error.message) say(error.message, true); return; }
@@ -474,3 +492,21 @@ accountForm.addEventListener('submit', async event => {
     save.disabled = false;
   }
 });
+
+$('conflict-reload').addEventListener('click', () => { if (!saving && conflictProduct && confirm('Загрузить актуальную версию? Ваши несохранённые изменения будут удалены.')) { if (editingId === conflictProduct.id) openEditor(conflictProduct); else { conflictProduct = null; $('conflict-reload').hidden = true; load(); } } });
+let previewFocus = null, previewSent = false;
+function previewProduct() {
+  const product = { id: editingId || 'admin-draft', title: editor.title.value, price: Number(editor.price.value), description: editor.description.value, images: photos.map(p => p.src), image: photos[0]?.src || '', preview: cut.data || cut.path, active: true, sold: false, reserved: false };
+  for (const name of PASSPORT) product[name] = editor[name].value;
+  product.notes = notes.map(n => ({x:n.x,y:n.y,text:n.text,type:'flaw',img:photos.indexOf(n.photo)}));
+  return product;
+}
+function sendPreview() { if (!$('preview-modal').hidden && !previewSent && $('preview-frame').contentWindow) { $('preview-frame').contentWindow.postMessage({type:'rewear-admin-preview',product:previewProduct()}, location.origin); previewSent = true; } }
+function closePreview() { const modal = $('preview-modal'); if (modal.hidden) return; modal.hidden = true; $('preview-frame').src = 'about:blank'; if (typeof document !== 'undefined') { panel.inert = false; barActions.inert = false; } previewFocus?.focus(); }
+$('preview-open').addEventListener('click', () => { if (uploads || cut.busy || cut.pending || saving || mutating) return; previewSent = false; previewFocus = $('preview-open'); $('preview-modal').hidden = false; panel.inert = true; barActions.inert = true; $('preview-frame').src = '/?admin-preview=1'; $('preview-close').focus(); });
+$('preview-close').addEventListener('click', closePreview);
+$('preview-frame').addEventListener('load', sendPreview);
+$('preview-modal').addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); closePreview(); } if (event.key === 'Tab' && event.shiftKey && document.activeElement === $('preview-close')) { event.preventDefault(); $('preview-frame').focus(); } });
+$('preview-frame').addEventListener('blur', () => { if (!$('preview-modal').hidden) $('preview-close').focus(); });
+if (typeof window !== 'undefined') window.addEventListener('message', event => { if (event.origin === location.origin && event.source === $('preview-frame').contentWindow && event.data?.type === 'rewear-preview-ready') sendPreview();
+  if (event.origin === location.origin && event.source === $('preview-frame').contentWindow && event.data?.type === 'rewear-preview-close') closePreview(); });

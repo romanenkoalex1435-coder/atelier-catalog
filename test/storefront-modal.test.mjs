@@ -1,39 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import vm from 'node:vm';
-import { readFileSync } from 'node:fs';
-
-function harness(sourcePath = process.env.STOREFRONT_SOURCE || '../app.js', { deferredHistory = false, reducedMotion = true } = {}) {
-  const nodes = new Map(), timers = [], listeners = {}, frames = [], historyEvents = [];
-  let document;
-  function node(id) {
-    const attrs = {}, classes = new Set();
-    return { id, hidden: false, inert: false, isConnected: true, dataset: {}, style: {}, tagName: 'DIV', children: [], offsetWidth: 400, offsetHeight: 600,
-      textContent: '', listeners: {}, getClientRects: () => [{ width:400, height:600 }], getBoundingClientRect: () => ({ left:0, top:0, width:400, height:600 }),
-      classList: { add: x => classes.add(x), remove: x => classes.delete(x), toggle(x) { if (classes.has(x)) { classes.delete(x); return false; } classes.add(x); return true; } },
-      setAttribute: (k,v) => attrs[k] = v, getAttribute: k => attrs[k], removeAttribute: k => delete attrs[k],
-      focus() { document.activeElement = this; },
-      contains(el) { return this === el || this.children.includes(el); },
-      closest() { return null; },
-      querySelector(sel) { return nodes.get(sel) || null; }, querySelectorAll() { return this.children; },
-      addEventListener(k,v) { this.listeners[k] = v; }, animate() {}, scrollIntoView() {},
-    };
-  }
-  function get(sel) { if (!nodes.has(sel)) nodes.set(sel,node(sel.slice(1))); return nodes.get(sel); }
-  document = { body: node('body'), activeElement: node('opener'), querySelector: get, querySelectorAll: () => [], addEventListener(k,v) { listeners[k] = v; } };
-  document.body.dataset = {};
-  const sheet = get('#sheet'), zoom = get('#zoom'), close = get('#sheet-close'), zclose = get('#zoom-close'), ztoggle = get('#zoom-toggle'), title = get('#sheet-title');
-  sheet.hidden = zoom.hidden = true;
-  sheet.children = [close,title]; zoom.children = [zclose,ztoggle];
-  document.body.children = [get('main'),get('header'),sheet,zoom,get('#scrim')];
-  let location = new URL('https://shop.test/?other=1&product=a');
-  const entries = [{ state: null, url: location.href }]; let cursor=0;
-  const history = { get state() { return entries[cursor].state; }, replaceState(state,_,url) { entries[cursor]={state,url}; location = new URL(url,location); }, pushState(state,_,url) { entries.splice(++cursor); entries[cursor]={state,url}; location=new URL(url,location); }, back() { cursor--; location=new URL(entries[cursor].url); (deferredHistory ? historyEvents.push(() => listeners.popstate()) : listeners.popstate()); }, forward() { cursor++; location=new URL(entries[cursor].url); (deferredHistory ? historyEvents.push(() => listeners.popstate()) : listeners.popstate()); } };
-  const context = vm.createContext({ document, history, get location() { return location; }, window: { addEventListener(k,v) { listeners[k]=v; } }, URL, URLSearchParams, Intl, console, listeners, navigator: {}, matchMedia: () => ({ matches: reducedMotion, addEventListener() {} }), localStorage: { getItem: () => null, setItem() {} }, scrollTo() {}, requestAnimationFrame(fn) { frames.push(fn); return frames.length; }, cancelAnimationFrame(id) { frames[id - 1] = null; }, performance: { now: () => 0 }, clearTimeout() {}, setTimeout(fn) { timers.push(fn); }, fetch() {} });
-  let source = readFileSync(new URL(sourcePath,import.meta.url),'utf8').replace(/^init\(\);$/m,'');
-  vm.runInContext(source + '\n globalThis.ui = { openSheet, closeSheet, openZoom, closeZoom, containFocus: typeof containFocus === "function" ? containFocus : (root, event) => listeners.keydown(event), renderToolbar, position: () => pos, setProducts: value => products = value };',context);
-  return { ui:context.ui, get, document, history, timers, listeners, entries, frames, historyEvents, currentUrl: () => location.href };
-}
+import {readFileSync} from 'node:fs';
+import {harness} from './helpers/storefront-harness.mjs';
 
 test('view replacement focuses title and sheet isolates background', () => {
   const h=harness(); h.ui.openSheet(() => {}); assert.equal(h.document.activeElement,h.get('#sheet-close'));

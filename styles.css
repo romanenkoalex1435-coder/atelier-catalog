@@ -292,3 +292,21 @@ p.note { margin: 0; }
 .zoom-toggle { max-width: 100%; }
 .zoom-scroll.zoomed .zoom-toggle { width: 220%; max-width: none; }
 .zoom-scroll.zoomed img { width: 100%; }
+
+/* Product essentials and refreshed checkout. */
+.product-summary { margin: 8px 0 0; color: var(--ink); font-size: 15px; font-weight: 500; }
+.vintage-terms { margin-top: 20px; }
+.cart-notice { margin-top: 12px; font-size: 14px; color: var(--accent); }
+.cart-notice:empty { display: none; }
+.cart-unavailable { color: var(--accent); font-size: 14px; margin-top: 4px; }
+.cart-line.unavailable .cart-thumb { opacity: .55; }
+.admin-preview > main, .admin-preview > header, .admin-preview > footer, .admin-preview > #consent { display: none !important; }
+.admin-preview .sheet { width: 100%; max-height: 100dvh; }
+.admin-preview .scrim { display: none; }
+@media (max-width: 719px) {
+  .gallery-tools, .dots + .gallery-tools { right: 8px; bottom: 34px; }
+  .product-summary { font-size: 14px; }
+}
+
+.copy-order-label { display:block; margin:16px 0 8px; font-size:14px; }
+.order-text { box-sizing:border-box; width:100%; resize:vertical; border:1px solid var(--line); border-radius:14px; padding:12px; font:inherit; color:var(--ink); background:var(--paper); }
