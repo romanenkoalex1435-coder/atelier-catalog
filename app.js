@@ -463,7 +463,8 @@ function openZoom(src, alt, fromHistory = false) {
   zoomSource = [src, alt];
   if (!fromHistory) pushLayer(2);
   zoomImg.src = src; zoomImg.alt = alt || '';
-  zoomScroll.classList.remove('zoomed');
+  zoomScale = 1; zoomOffset = {x:0,y:0}; zoomPointers.clear(); zoomScroll.classList.remove('zoomed');
+  zoomImg.style.transform = '';
   zoomToggle.setAttribute('aria-pressed', 'false');
   zoomToggle.setAttribute('aria-label', 'Приблизить фото');
   zoom.hidden = false;
@@ -477,20 +478,61 @@ function hideZoom() {
 function closeZoom() { requestLayerClose(); }
 zoom.querySelector('#zoom-close').addEventListener('click', closeZoom);
 const zoomToggle = document.querySelector('#zoom-toggle');
-zoomToggle.addEventListener('click', event => {
-  const zoomed = zoomScroll.classList.toggle('zoomed');
+let zoomScale = 1, zoomOffset = {x:0,y:0};
+const zoomPointers = new Map();
+let pinchStart = null, panStart = null, suppressZoomClickUntil = 0;
+function renderZoomScale() {
+  const zoomed = zoomScale > 1.02;
+  zoomScroll.classList.toggle('zoomed', zoomed);
+  zoomImg.style.transform = zoomed ? `translate(${zoomOffset.x}px, ${zoomOffset.y}px) scale(${zoomScale})` : '';
   zoomToggle.setAttribute('aria-pressed', String(zoomed));
   zoomToggle.setAttribute('aria-label', zoomed ? 'Уменьшить фото' : 'Приблизить фото');
-  if (zoomed) {
+  zoomScroll.setAttribute('aria-label', zoomed ? 'Увеличенное фото. Перетаскивайте одним пальцем, меняйте масштаб двумя.' : 'Фото. Разведите два пальца, чтобы приблизить.');
+}
+function clampZoomOffset() {
+  const scale = Math.max(1, zoomScale), stage = zoomScroll.getBoundingClientRect(), image = zoomImg.getBoundingClientRect();
+  const width = zoomImg.clientWidth || image.width, height = zoomImg.clientHeight || image.height;
+  zoomOffset.x = Math.max(-Math.max(0, (width * scale - stage.width) / 2), Math.min(Math.max(0, (width * scale - stage.width) / 2), zoomOffset.x));
+  zoomOffset.y = Math.max(-Math.max(0, (height * scale - stage.height) / 2), Math.min(Math.max(0, (height * scale - stage.height) / 2), zoomOffset.y));
+}
+zoomToggle.addEventListener('click', event => {
+  if (Date.now() < suppressZoomClickUntil) { event.preventDefault(); event.stopImmediatePropagation(); return; }
+  zoomScale = zoomScale > 1.02 ? 1 : 2;
+  if (zoomScale === 1) zoomOffset = {x:0,y:0};
+  else if (event.detail) {
     const box = zoomImg.getBoundingClientRect();
-    const x = event.detail ? (event.clientX - box.left) / (box.width || 1) : .5;
-    const y = event.detail ? (event.clientY - box.top) / (box.height || 1) : .5;
-    requestAnimationFrame(() => {
-      zoomScroll.scrollLeft = Math.max(0, (zoomImg.offsetWidth - zoomScroll.clientWidth) * x);
-      zoomScroll.scrollTop = Math.max(0, (zoomImg.offsetHeight - zoomScroll.clientHeight) * y);
-    });
+    zoomOffset = {x:(zoomScroll.clientWidth/2-(event.clientX-box.left))*.5, y:(zoomScroll.clientHeight/2-(event.clientY-box.top))*.5};
+  }
+  clampZoomOffset(); renderZoomScale();
+});
+zoomScroll.addEventListener('pointerdown', event => {
+  if (event.target !== zoomImg && event.target !== zoomToggle) return;
+  zoomScroll.setPointerCapture(event.pointerId);
+  zoomPointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+  if (zoomPointers.size === 2) {
+    const [a,b]=[...zoomPointers.values()]; pinchStart={distance:Math.hypot(a.x-b.x,a.y-b.y),scale:zoomScale,count:2}; panStart=null; event.preventDefault();
+  } else if (zoomPointers.size === 1 && zoomScale>1.02) panStart={x:event.clientX,y:event.clientY,offset:{...zoomOffset}};
+});
+zoomScroll.addEventListener('pointermove', event => {
+  if (!zoomPointers.has(event.pointerId)) return;
+  zoomPointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+  if (zoomPointers.size >= 2 && pinchStart) {
+    const currentPointers=[...zoomPointers.values()]; if (Math.abs(Math.hypot(currentPointers[0].x-currentPointers[1].x,currentPointers[0].y-currentPointers[1].y)-pinchStart.distance)>4) suppressZoomClickUntil=Date.now()+500;
+    const [a,b]=[...zoomPointers.values()]; zoomScale=Math.max(1,Math.min(5,pinchStart.scale*Math.hypot(a.x-b.x,a.y-b.y)/(pinchStart.distance||1)));
+    if(zoomScale<=1.02) zoomOffset={x:0,y:0}; clampZoomOffset(); renderZoomScale(); event.preventDefault();
+  } else if (zoomPointers.size===1 && panStart && zoomScale>1.02) {
+    if (Math.hypot(event.clientX-panStart.x,event.clientY-panStart.y)>4) suppressZoomClickUntil=Date.now()+500;
+    zoomOffset={x:panStart.offset.x+event.clientX-panStart.x,y:panStart.offset.y+event.clientY-panStart.y}; clampZoomOffset(); renderZoomScale(); event.preventDefault();
   }
 });
+function endZoomPointer(event) {
+  zoomPointers.delete(event.pointerId);
+  if(zoomPointers.size<2) pinchStart=null;
+  if(!zoomPointers.size) panStart=null;
+}
+zoomScroll.addEventListener('pointerup',endZoomPointer);
+zoomScroll.addEventListener('pointercancel',endZoomPointer);
+
 
 /* ---------- events ---------- */
 document.querySelector('main').addEventListener('click', event => {
